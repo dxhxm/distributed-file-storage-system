@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.api import health
 
 app = FastAPI(
     title="Distributed File Storage System",
@@ -19,3 +20,7 @@ async def health_check():
     return {
         "status": "healthy"
     }
+
+app = FastAPI()
+
+app.include_router(health.router)
