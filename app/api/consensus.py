@@ -1,34 +1,58 @@
-from fastapi import APIRouter
+# app/api/consensus.py
+
+from fastapi import APIRouter, Request
 from app.services.consensus import ConsensusService
 
 router = APIRouter()
 
 consensus_service = ConsensusService()
 
+
 @router.get("/leader")
 def get_leader():
     """
-    API to get the current leader
+    Get current leader
     """
-    leader = consensus_service.get_leader()
-    return {"leader": leader}
+    return {"leader": consensus_service.get_leader()}
+
+
+@router.post("/fail-leader")
+def fail_leader():
+    """
+    Simulate leader failure
+    """
+    return consensus_service.simulate_leader_failure()
 
 
 @router.post("/start-election")
 def start_election():
     """
-    Node A triggers election requests to other nodes
+    Start leader election
     """
     result = consensus_service.send_election_requests()
     return {
-        "message": "Election messages sent",
-        "responses": result
+        "message": "Election completed",
+        "result": result
     }
 
 
 @router.post("/election")
-def receive_election():
+async def receive_election(request: Request):
     """
-    Endpoint for other nodes to receive election request
+    Receive vote request
     """
-    return consensus_service.receive_election_request()
+    body = await request.json()
+    candidate = body.get("candidate")
+
+    return consensus_service.receive_election_request(candidate)
+
+
+@router.post("/leader")
+async def update_leader(request: Request):
+    """
+    Receive new leader announcement
+    """
+    body = await request.json()
+    leader = body.get("leader")
+
+    return consensus_service.update_leader(leader)
