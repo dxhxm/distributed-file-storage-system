@@ -4,7 +4,7 @@ from app.config import NODES, CURRENT_NODE
 def replicate_file(file_path, filename):
     for node in NODES:
         if node == CURRENT_NODE:
-            continue  # skip self
+            continue  
 
         try:
             with open(file_path, 'rb') as f:

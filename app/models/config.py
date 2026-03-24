@@ -4,4 +4,4 @@ NODES = [
     "http://localhost:5003"   # Node3
 ]
 
-CURRENT_NODE = "http://localhost:5001"  # change per node
+CURRENT_NODE = "http://localhost:5001"  # change node

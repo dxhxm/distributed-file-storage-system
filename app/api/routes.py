@@ -7,7 +7,7 @@ def upload():
 
     file.save(file_path)
 
-    # 🔥 REPLICATION CALL
+    # REPLICATION CALL
     replicate_file(file_path, file.filename)
 
     return {"message": "File uploaded & replicated"}
