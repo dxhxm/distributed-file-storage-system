@@ -28,3 +28,10 @@ async def update_node(node_name: str, status: str):
         return {"message": f"{node_name} updated to {status}"}
     else:
         return {"error": "Node not found"}
+
+@router.get("/nodes/check")
+async def check_nodes():
+    nodes = health_service.check_all_nodes()
+    return {
+        "nodes": nodes
+    }
