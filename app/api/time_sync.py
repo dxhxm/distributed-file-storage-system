@@ -7,7 +7,7 @@ router = APIRouter()
 
 @router.get("/time")
 async def get_time():
-    current_timestamp=time_sync.get_current_node_time
+    current_timestamp=time_sync.get_current_node_time()
     readable_format=datetime.fromtimestamp(current_timestamp).strftime("%H:%M:%S")
     return {"node_time": current_timestamp,
             "readable_time":readable_format,
