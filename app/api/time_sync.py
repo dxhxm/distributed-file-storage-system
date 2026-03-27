@@ -15,3 +15,8 @@ async def sync_time(target_time: float):
 @router.get("/fetch-neighbor/{node_id}")
 async def trigger_fetch(node_id: str):
     return await time_sync.fetch_remote_time(node_id)
+
+@router.get("/sync-with-leader/{node_id}")
+async def trigger_sync(node_id:str):
+    """Command this node to synchronize its clock with a leader."""
+    return await time_sync.perform_sync(node_id)
