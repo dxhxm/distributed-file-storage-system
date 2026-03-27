@@ -10,3 +10,7 @@ async def get_time():
 @router.post("/sync-time")
 async def sync_time(target_time: float):
     return time_sync.synchronize_clock(target_time)
+
+@router.get("/fetch-neighbor/{node_id}")
+async def trigger_fetch(node_id: str):
+    return await time_sync.fetch_remote_time(node_id)

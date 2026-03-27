@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.api import time_sync
 
 app = FastAPI(
     title="Distributed File Storage System",
@@ -19,3 +20,5 @@ async def health_check():
     return {
         "status": "healthy"
     }
+
+app.include_router(time_sync.router, tags=["Time Synchronization"])
