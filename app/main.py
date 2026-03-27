@@ -22,3 +22,4 @@ async def health_check():
     }
 
 app.include_router(time_sync.router, tags=["Time Synchronization"])
+app.include_router(time_sync.router)

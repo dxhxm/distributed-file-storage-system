@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.services import time_sync
+from app.services.time_sync import fetch_remote_time, get_current_node_time
 
 router = APIRouter()
 
