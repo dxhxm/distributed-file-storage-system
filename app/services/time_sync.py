@@ -1,5 +1,6 @@
 import httpx
 import time
+import asyncio
 
 drift_offset=0.0
 
@@ -79,3 +80,17 @@ async def perform_sync(leader_id: str):
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}
+        
+async def start_periodic_sync(Leader_id:str,interval:int =60):
+    """
+        Background loop that synchronizes time every interval seconds.
+        maintains  consistent timestamps across the distributed system.
+    """
+    print(f"info: Background sync task started. targeting Leader {Leader_id} every {interval} seconds.")
+    while True:
+        await asyncio.sleep(interval)
+        result = await perform_sync(Leader_id)
+        if result["status"]=="success":
+            print(f"info: periodic sync successful. New offset: {result['new_offset']:.4f}s")
+        else:
+            print(f"Warning:periodic sync failed: {result['message']}")
