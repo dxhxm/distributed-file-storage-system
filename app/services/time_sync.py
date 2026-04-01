@@ -81,14 +81,14 @@ async def perform_sync(leader_id: str,samples: int = 5):
         return {"status": "error", "message": "Zero valid samples collected."}
     avg_rtt = sum(rtt_list) / len(rtt_list)
     latest_server_time = server_times[-1]
-
+    synchronized_time = latest_server_time + (avg_rtt / 2)
+    drift_offset = synchronized_time - time.time()
     return {
                     "status": "success",
                     "new_offset": drift_offset,
-                    "synchronized_time": get_current_node_time(),
                     "Avg_RTT": avg_rtt,
                     "samples_collected": len(rtt_list),
-
+                    "synchronized_time": get_current_node_time(),
                 }
 async def start_periodic_sync(Leader_id:str,interval:int =30):
     """
