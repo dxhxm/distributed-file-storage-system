@@ -49,45 +49,40 @@ async def fetch_remote_time(target_node_id: str):
             print(f"CRITICAL ERROR in fetch_remote_time: {str(e)}")
             return{"status":"Error","message":str(e)}
         
-async def perform_sync(leader_id: str):
-    """Calculates and applies the clock offset using Cristian's Algorithm."""
-    global drift_offset
-
-    if leader_id not in NODE_CONFIG:
-        return{"status":"error","message":"Unknown Leader ID"}
-    url=f"{NODE_CONFIG[leader_id]}/time"
-async def perform_sync(leader_id: str):
-    """Calculates and applies the clock offset using Cristian's Algorithm."""
+async def perform_sync(leader_id: str,samples: int = 5):
+    """ Calculates and applies the clock offset using Cristian's Algorithm.
+        Gathers multiple RTT samples to filter out network noise."""
     global drift_offset
     
     if leader_id not in NODE_CONFIG:
         return {"status": "error", "message": "Unknown leader ID"}
 
     url = f"{NODE_CONFIG[leader_id]}/time"
-    
+    rtt_list = []
+    server_times = []
+
     async with httpx.AsyncClient() as client:
-        try:
-            t_request = time.time()
-            response = await client.get(url, timeout=2.0)
-            response.raise_for_status()
-            
-            t_server = response.json()["node_time"]
-            t_response = time.time()
-            
-            rtt = t_response - t_request
-            synchronized_time = t_server + (rtt / 2)
-            
-            drift_offset = synchronized_time - t_response
-            
-            return {
-                "status": "success",
-                "new_offset": drift_offset,
-                "synchronized_time": get_current_node_time(),
-                "RTT": rtt
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-        
+        for i in range(samples):
+            try:
+                t_request = time.time()
+                response = await client.get(url, timeout=1.5)
+                t_response = time.time()
+                response.raise_for_status()
+                
+                data=response.json()
+                rtt_list.append(t_response - t_request)
+                server_times.append(data["node_time"])
+
+                await asyncio.sleep(0.05)
+            except Exception as e:
+                print(f"WARNING: Sample {i+1} failed: {e}")
+                continue
+    return {
+                    "status": "success",
+                    "new_offset": drift_offset,
+                    "synchronized_time": get_current_node_time(),
+                    "RTT": rtt
+                }
 async def start_periodic_sync(Leader_id:str,interval:int =30):
     """
         Background loop that synchronizes time every interval seconds.
