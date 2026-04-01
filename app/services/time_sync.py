@@ -77,11 +77,18 @@ async def perform_sync(leader_id: str,samples: int = 5):
             except Exception as e:
                 print(f"WARNING: Sample {i+1} failed: {e}")
                 continue
+    if not rtt_list:
+        return {"status": "error", "message": "Zero valid samples collected."}
+    avg_rtt = sum(rtt_list) / len(rtt_list)
+    latest_server_time = server_times[-1]
+
     return {
                     "status": "success",
                     "new_offset": drift_offset,
                     "synchronized_time": get_current_node_time(),
-                    "RTT": rtt
+                    "Avg_RTT": avg_rtt,
+                    "samples_collected": len(rtt_list),
+
                 }
 async def start_periodic_sync(Leader_id:str,interval:int =30):
     """
