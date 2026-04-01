@@ -1,18 +1,25 @@
 import httpx
 import time
 import asyncio
+from app.api.consensus import consensus_service
 
 drift_offset=0.0
+last_returned_time=0.0
 
-NODE_CONFIG={
-    "nodeA": "http://127.0.0.1:8000",
-    "nodeB": "http://127.0.0.1:8001",
-    "nodeC": "http://127.0.0.1:8002"
+NODE_CONFIG = {
+    "Node A": "http://127.0.0.1:8000",
+    "Node B": "http://127.0.0.1:8001",
+    "Node C": "http://127.0.0.1:8002"
 }
 
 def get_current_node_time():
     """Returns the 'Synchronized' time for the whole system."""
-    return time.time()
+    global last_returned_time
+    current = time.time() + drift_offset
+    if current <= last_returned_time:
+        current = last_returned_time + 0.000001
+    last_returned_time = current
+    return current
 def synchronize_clock(target_time):
     return {"status": "success", "new_time": target_time}
 
@@ -81,16 +88,25 @@ async def perform_sync(leader_id: str):
         except Exception as e:
             return {"status": "error", "message": str(e)}
         
-async def start_periodic_sync(Leader_id:str,interval:int =60):
+async def start_periodic_sync(Leader_id:str,interval:int =30):
     """
         Background loop that synchronizes time every interval seconds.
         maintains  consistent timestamps across the distributed system.
+        automatically finds leader and synchronizes
     """
-    print(f"info: Background sync task started. targeting Leader {Leader_id} every {interval} seconds.")
     while True:
-        await asyncio.sleep(interval)
-        result = await perform_sync(Leader_id)
-        if result["status"]=="success":
-            print(f"info: periodic sync successful. New offset: {result['new_offset']:.4f}s")
+        leader_name= consensus_service.get_leader()
+        my_name= consensus_service.current_node
+
+        if leader_name and leader_name != my_name:
+            print(f"INFO: Synchronizing time with leader: {leader_name}")
+            result = await perform_sync(leader_name)
+            
+            if result["status"] == "success":
+                print(f"INFO: Sync successful. New offset: {result['new_offset']:.6f}s")
+            else:
+                print(f"WARNING: Sync failed: {result['message']}")
         else:
-            print(f"Warning:periodic sync failed: {result['message']}")
+            print(f"DEBUG: I am the leader ({my_name}) or no leader exists. Skipping.")
+
+        await asyncio.sleep(interval)
