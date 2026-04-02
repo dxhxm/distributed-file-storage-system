@@ -6,6 +6,8 @@ from app.api.consensus import consensus_service
 drift_offset=0.0
 target_offset = 0.0
 last_returned_time=0.0
+SLEW_RATE=0.001
+SLEW_INTERVAL=0.1
 
 NODE_CONFIG = {
     "Node A": "http://127.0.0.1:8000",
