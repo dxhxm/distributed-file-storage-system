@@ -93,9 +93,13 @@ async def perform_sync(leader_id: str,samples: int = 5):
     latest_server_time = server_times[-1]
     synchronized_time = latest_server_time + (avg_rtt / 2)
     drift_offset = synchronized_time - time.time()
+    new_calculated_offset=synchronized_time- time.time()
+    global target_offset
+    target_offset = new_calculated_offset
     return {
                     "status": "success",
-                    "new_offset": drift_offset,
+                    "applied_target": target_offset,
+                    "current_active_offset": drift_offset,
                     "Avg_RTT": avg_rtt,
                     "samples_collected": len(rtt_list),
                     "synchronized_time": get_current_node_time(),
