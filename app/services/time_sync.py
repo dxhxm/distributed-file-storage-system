@@ -123,3 +123,13 @@ async def start_periodic_sync(Leader_id:str,interval:int =30):
             print(f"DEBUG: I am the leader ({my_name}) or no leader exists. Skipping.")
 
         await asyncio.sleep(interval)
+async def start_clock_slew():
+    """background task that gradually adjusts the drift_offset toward target_offset.
+       prevent suddent time jumps in distributed system."""
+    global drift_offset, target_offset
+    while True:
+        diff= target_offset - drift_offset
+        if abs(diff) > 0.000001:
+            adjustment=max(min(diff, SLEW_RATE),-SLEW_RATE)
+            drift_offset += adjustment
+        await asyncio.sleep(SLEW_INTERVAL)
