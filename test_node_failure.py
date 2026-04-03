@@ -78,6 +78,14 @@ def get_leader(name, url):
         return "UNREACHABLE"
 
 
+def get_internal_status(url):
+    try:
+        r = requests.get(f"{url}/node-status", timeout=2)
+        return r.json()
+    except Exception:
+        return {}
+
+
 def separator(title=""):
     print(f"\n{'='*55}")
     if title:
@@ -148,6 +156,14 @@ leader_c = get_leader("Node C", BASE["Node C"])
 print(f"  Node A believes leader = {leader_a}")
 print(f"  Node C believes leader = {leader_c}")
 
+# Verify internal status on remaining nodes
+print("\n  Internal cluster status (as seen by Node A):")
+status_a = get_internal_status(BASE["Node A"])
+for n, s in status_a.items():
+    print(f"    {n}: {s}")
+
+node_b_marked_dead = status_a.get("Node B") == "DEAD"
+
 # ──────────────────────────────────────────────────────────
 # Results
 # ──────────────────────────────────────────────────────────
@@ -156,6 +172,7 @@ results = {
     "Node B marked DEAD (unreachable)": node_b_dead,
     "Node A still responding":          check_health("Node A", BASE["Node A"]),
     "Node C still responding":          check_health("Node C", BASE["Node C"]),
+    "Node B marked DEAD in Node A status": node_b_marked_dead,
     "Cluster has a consistent leader":  (leader_a == leader_c and leader_a not in (None, "UNREACHABLE")),
 }
 

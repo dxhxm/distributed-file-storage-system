@@ -16,6 +16,14 @@ def get_leader():
     return {"leader": consensus_service.get_leader()}
 
 
+@router.get("/node-status")
+def get_node_status():
+    """
+    Get the status of all nodes tracked by this instance
+    """
+    return consensus_service.node_status
+
+
 @router.post("/fail-leader")
 def fail_leader():
     """
