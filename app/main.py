@@ -13,21 +13,13 @@ app.include_router(consensus_router)
 
 
 @app.on_event("startup")
-async def start_background_monitoring():
+async def start_raft_consensus():
     """
-    FastAPI startup event: starts background threads for:
-      - Leader health checking
-      - Node status updates (ALIVE / DEAD tracking)
-    Runs automatically when the node starts.
+    FastAPI startup event: starts background threads for Raft consensus
     """
-    print(f"[startup] Starting background leader monitoring for node: {consensus_service.current_node}")
-    thread = threading.Thread(
-        target=consensus_service.check_nodes_health_loop,
-        daemon=True,
-        name="leader-health-monitor"
-    )
-    thread.start()
-    print("[startup] Background health monitoring thread started.")
+    print(f"[startup] Starting background Raft consensus loop for node: {consensus_service.current_node}")
+    consensus_service.start_background_tasks()
+    print("[startup] Background Raft consensus thread started.")
 
 
 @app.get("/")
