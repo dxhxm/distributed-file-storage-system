@@ -8,6 +8,7 @@ target_offset = 0.0
 last_returned_time=0.0
 SLEW_RATE=0.001
 SLEW_INTERVAL=0.1
+max_skew_threshold=60.0
 
 NODE_CONFIG = {
     "Node A": "http://127.0.0.1:8000",
@@ -62,7 +63,7 @@ async def perform_sync(leader_id: str,samples: int = 5):
     Mathematical Foundation:
     T_{sync} = T_{server} + \frac{1}{2n} \sum_{i=1}^{n} RTT_i
     """
-    global drift_offset
+    global drift_offset,target_offset
     
     if leader_id not in NODE_CONFIG:
         return {"status": "error", "message": "Unknown leader ID"}
@@ -92,9 +93,15 @@ async def perform_sync(leader_id: str,samples: int = 5):
     avg_rtt = sum(rtt_list) / len(rtt_list)
     latest_server_time = server_times[-1]
     synchronized_time = latest_server_time + (avg_rtt / 2)
-    drift_offset = synchronized_time - time.time()
     new_calculated_offset=synchronized_time- time.time()
-    global target_offset
+    
+    if abs(new_calculated_offset-drift_offset) > max_skew_threshold:
+        print(f"CRITICAL: Rejected Byzantine time from {leader_id}. Skew: {new_calculated_offset:.2f}s")
+        return {
+            "status": "error",
+            "message": f"Byzantine Fault Detected: Clock skew ({new_calculated_offset:.2f}s) exceeds safety threshold.",
+            "current active_offset": drift_offset,
+        }
     target_offset = new_calculated_offset
     return {
                     "status": "success",
