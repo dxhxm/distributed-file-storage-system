@@ -1,25 +1,54 @@
-git push origin Data-Replication-and-Consistencyfrom flask import Flask, request
-import os
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from app.api.consensus import router as consensus_router, consensus_service
+import threading
+from app.api import health
+from app.api import time_sync
+from app.services.time_sync import start_periodic_sync
+from app.api import consensus
 
-app = Flask(__name__)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(start_periodic_sync("nodeB", interval=30))
+    print("INFO: Periodic Time Synchronization Task Started.")
+    yield
+    
 
-STORAGE = "Storage"
-os.makedirs(STORAGE, exist_ok=True)
+app = FastAPI(
+    title="Distributed File Storage System",
+    description="Base FastAPI server for distributed nodes",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
-@app.route('/health')
-def health():
-    return "OK", 200
-
-
-@app.route('/replicate', methods=['POST'])
-def replicate():
-    file = request.files['file']
-    path = os.path.join(STORAGE, file.filename)
-    file.save(path)
-
-    print(f"📥 File received: {file.filename}")
-    return "Saved", 200
+# Register routes
+app.include_router(consensus_router)
 
 
-if __name__ == "__main__":
-    app.run(port=5001)
+@app.on_event("startup")
+async def start_raft_consensus():
+    """
+    FastAPI startup event: starts background threads for Raft consensus
+    """
+    print(f"[startup] Starting background Raft consensus loop for node: {consensus_service.current_node}")
+    consensus_service.start_background_tasks()
+    print("[startup] Background Raft consensus thread started.")
+
+app.include_router(time_sync.router, tags=["Time Synchronization"])
+app.include_router(consensus.router, tags=["Consensus"])
+
+@app.get("/")
+async def root():
+    return {"message": "Distributed File Storage System Node Running"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy"
+    }
+
+app = FastAPI()
+
+app.include_router(health.router)
+    return {"status": "healthy"}
