@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from app.api import health
 from app.api import time_sync
 from app.services.time_sync import start_periodic_sync
 from app.api import consensus
@@ -28,4 +29,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    return {
+        "status": "healthy"
+    }
+
+app = FastAPI()
+
+app.include_router(health.router)
     return {"status": "healthy"}
