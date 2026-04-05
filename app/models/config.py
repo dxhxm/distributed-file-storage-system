@@ -1,7 +1,11 @@
+import os
+
+# All node URLs must match the ports used by uvicorn in the node runner scripts
 NODES = [
-    "http://localhost:5001",  # Node1
-    "http://localhost:5002",  # Node2
-    "http://localhost:5003"   # Node3
+    "http://localhost:8000",  # Node A
+    "http://localhost:8001",  # Node B
+    "http://localhost:8002",  # Node C
 ]
 
-CURRENT_NODE = "http://localhost:5001"  # change node
+# Determine current node from environment variable (set in each node runner script)
+CURRENT_NODE = os.environ.get("CURRENT_NODE_URL", "http://localhost:8000")

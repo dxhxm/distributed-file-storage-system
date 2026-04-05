@@ -53,12 +53,18 @@ async def raft_append_entries(request: Request):
         data.get("leader_commit")
     )
 
-# Keeping for backwards compatibility with tests / debugging if necessary
+from app.services.health_service import get_all_nodes
+
 @router.get("/node-status")
 def get_node_status():
     """Return local node's internal view"""
-    with consensus_service.lock:
-        return consensus_service.node_status
+    status_map = {
+        "nodeA": "Node A",
+        "nodeB": "Node B",
+        "nodeC": "Node C"
+    }
+    raw_status = get_all_nodes()
+    return {status_map.get(k, k): v for k, v in raw_status.items()}
 
 @router.post("/fail-leader")
 def fail_leader():
