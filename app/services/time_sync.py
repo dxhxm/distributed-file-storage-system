@@ -54,7 +54,7 @@ async def fetch_remote_time(target_node_id: str):
             return{"status":"Error","message":str(e)}
         
 async def perform_sync(leader_id: str,samples: int = 5):
-    """
+    r"""
     Calculates and applies the clock offset using an enhanced Cristian's Algorithm.
     
     This function implements (High-Precision RTT Filtering) by gathering
@@ -112,7 +112,7 @@ async def perform_sync(leader_id: str,samples: int = 5):
                     "synchronized_time": get_current_node_time(),
                     "precision_boost": "Active (Statistical Average)"
                 }
-async def start_periodic_sync(Leader_id:str,interval:int =30):
+async def start_periodic_sync(interval:int =30):
     """
         Background loop that synchronizes time every interval seconds.
         maintains  consistent timestamps across the distributed system.
@@ -127,7 +127,7 @@ async def start_periodic_sync(Leader_id:str,interval:int =30):
             result = await perform_sync(leader_name)
             
             if result["status"] == "success":
-                print(f"INFO: Sync successful. New offset: {result['new_offset']:.6f}s")
+                printprint(f"INFO: Sync successful. Target set to: {result['applied_target']:.6f}s")
             else:
                 print(f"WARNING: Sync failed: {result['message']}")
         else:
@@ -135,8 +135,8 @@ async def start_periodic_sync(Leader_id:str,interval:int =30):
 
         await asyncio.sleep(interval)
 async def start_clock_slew():
-    """background task that gradually adjusts the drift_offset toward target_offset.
-       prevent suddent time jumps in distributed system."""
+    """ background task that gradually adjusts the drift_offset toward target_offset.
+        prevent sudden time jumps in distributed system."""
     global drift_offset, target_offset
     while True:
         diff= target_offset - drift_offset
