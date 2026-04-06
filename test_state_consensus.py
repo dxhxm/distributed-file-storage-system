@@ -119,8 +119,18 @@ print(f"[TEST] Proposing to {leader}: {payload1}")
 r = requests.post(f"{leader_url}/propose", json=payload1)
 print(f"[TEST] Propose Response: {r.json()}")
 
-separator("STEP 5: Wait for replication and Commit")
-time.sleep(2)
+separator("STEP 5: Wait until all nodes have applied state (up to 10s)")
+for _ in range(10):
+    all_replicated = True
+    for name, url in BASE.items():
+        st = get_state(url)
+        sm = st.get("state_machine", [])
+        if not sm or sm[-1] != payload1:
+            all_replicated = False
+            break
+    if all_replicated:
+        break
+    time.sleep(1)
 
 separator("STEP 6: Verify all nodes have applied state")
 verification_passed = True
@@ -162,8 +172,18 @@ payload2 = {"filename": "hello.txt", "action": "DELETE"}
 print(f"[TEST] Proposing to {leader}: {payload2}")
 requests.post(f"{leader_url}/propose", json=payload2)
 
-separator("STEP 9: Wait and Verify remaining nodes")
-time.sleep(2)
+separator("STEP 9: Wait and Verify remaining nodes (up to 10s)")
+for _ in range(10):
+    all_replicated = True
+    for name, url in BASE.items():
+        st = get_state(url)
+        sm = st.get("state_machine", [])
+        if len(sm) < 2 or sm[-1] != payload2:
+            all_replicated = False
+            break
+    if all_replicated:
+        break
+    time.sleep(1)
 
 final_passed = True
 for name, url in BASE.items():

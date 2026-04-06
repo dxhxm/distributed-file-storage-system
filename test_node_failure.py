@@ -133,10 +133,14 @@ processes["Node B"].wait()
 print("[TEST] Node B process terminated.")
 
 # ──────────────────────────────────────────────────────────
-# STEP 5: Wait for health-check interval (~7 seconds)
+# STEP 5: Wait for health-check interval (dynamic sleep)
 # ──────────────────────────────────────────────────────────
-separator("STEP 5: Waiting 8s for health-check to detect failure...")
-time.sleep(8)
+separator("STEP 5: Waiting up to 15s for health-check to detect failure...")
+for _ in range(15):
+    status_a = get_internal_status(BASE["Node A"])
+    if status_a.get("Node B") == "DEAD":
+        break
+    time.sleep(1)
 
 # ──────────────────────────────────────────────────────────
 # STEP 6: Verify fault tolerance

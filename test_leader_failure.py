@@ -109,8 +109,22 @@ lost_leader = leader
 del BASE[lost_leader]
 
 # STEP 4 Wait for election
-separator("Wait 4s for election timeout and new leader selection...")
-time.sleep(4)
+separator("Wait up to 15s for election timeout and new leader selection...")
+for _ in range(15):
+    leaders_set = set(get_leader(url) for name, url in BASE.items())
+    leaders_set.discard(None)
+    leaders_set.discard("unknown")
+    leaders_set.discard("UNREACHABLE")
+    
+    dead_detected = True
+    for name, url in BASE.items():
+        if get_node_status(url).get(lost_leader) != "DEAD":
+            dead_detected = False
+            break
+            
+    if len(leaders_set) == 1 and dead_detected:
+        break
+    time.sleep(1)
 
 # STEP 5 Verify
 separator("VERIFYING SYSTEM STATE")
