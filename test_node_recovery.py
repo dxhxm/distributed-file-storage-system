@@ -23,6 +23,8 @@ Run from project root:
 import subprocess
 import sys
 import time
+import os
+import signal
 import requests
 
 BASE = {
@@ -33,6 +35,29 @@ BASE = {
 
 PYTHON = sys.executable
 processes = {}
+
+
+def cleanup_ports():
+    """Kill any leftover processes on ports 8000-8002 from previous test runs."""
+    for port in [8000, 8001, 8002]:
+        try:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True, text=True
+            )
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid:
+                    try:
+                        os.kill(int(pid), signal.SIGKILL)
+                    except (ProcessLookupError, ValueError):
+                        pass
+        except Exception:
+            pass
+    time.sleep(1)
+
+
+cleanup_ports()
 
 def start_node(name, script):
     print(f"[TEST] Starting {name}...")
