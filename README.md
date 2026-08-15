@@ -1,16 +1,5 @@
 # Distributed Fault-Tolerant File Storage System
 
-## Team Members
-
-| Name                | Registration Number | Email                  |
-| ------------------- | ------------------- | ---------------------- |
-| Jayakody J.A.D.D.S. | IT24610791          | it24610791@my.sliit.lk |
-| Weeramanthri R.D.   | IT24610795          | it24610795@my.sliit.lk |
-| Pramodini A.G.H.    | IT24610786          | it24610786@my.sliit.lk |
-| Rupasinghe R.A.C.A. | IT24610794          | it24610794@my.sliit.lk |
-
----
-
 ## Instructions to Run the Prototype
 
 ### 1. Clone the Repository
