@@ -1,0 +1,16 @@
+{
+  "name": "dfss-frontend",
+  "version": "1.0.0",
+  "description": "Distributed File Storage System Web UI Data Layer & API Contract",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "tsx src/__tests__/client.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}
