@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "tsx src/__tests__/client.test.ts && tsx src/__tests__/tokens.test.ts",
+    "test": "tsx src/__tests__/client.test.ts && tsx src/__tests__/tokens.test.ts && tsx src/__tests__/layout.test.ts",
     "test:tokens": "tsx src/__tests__/tokens.test.ts",
-    "test:client": "tsx src/__tests__/client.test.ts"
+    "test:client": "tsx src/__tests__/client.test.ts",
+    "test:layout": "tsx src/__tests__/layout.test.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

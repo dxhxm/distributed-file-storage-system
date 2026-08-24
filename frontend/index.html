@@ -3,556 +3,403 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DFSS — Design Tokens & Type System Specification</title>
+  <title>DFSS — Distributed File Storage System</title>
   <link rel="stylesheet" href="./src/styles/index.css">
-  <style>
-    /* Showcase Layout Helpers (strictly utilizing tokens) */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: var(--space-8) var(--space-4);
-    }
-
-    .header-strip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--space-4) var(--space-6);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-line);
-      margin-bottom: var(--space-6);
-    }
-
-    .section {
-      margin-bottom: var(--space-8);
-    }
-
-    .section-title {
-      font-size: var(--text-lg);
-      margin-bottom: var(--space-3);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-
-    .section-desc {
-      font-size: var(--text-sm);
-      color: var(--color-muted);
-      margin-bottom: var(--space-4);
-      max-width: 800px;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-4);
-    }
-
-    .grid-4 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: var(--space-3);
-    }
-
-    .swatch-card {
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-line);
-      padding: var(--space-3);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-    }
-
-    .swatch-preview {
-      height: 48px;
-      border: 1px solid var(--color-line-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      font-weight: var(--font-weight-medium);
-    }
-
-    .swatch-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-    }
-
-    .swatch-name {
-      font-size: var(--text-xs);
-      font-weight: var(--font-weight-medium);
-      color: var(--color-ink);
-    }
-
-    .swatch-hex {
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--color-muted);
-    }
-
-    .card-panel {
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-line);
-      padding: var(--space-5);
-    }
-
-    .spacing-row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-1-5) 0;
-      border-bottom: 1px solid var(--color-line-subtle);
-    }
-
-    .spacing-label {
-      width: 120px;
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--color-muted);
-    }
-
-    .spacing-bar {
-      height: 16px;
-      background-color: var(--color-line-bright);
-      border: 1px solid var(--color-line);
-    }
-
-    .type-row {
-      padding: var(--space-3) 0;
-      border-bottom: 1px solid var(--color-line-subtle);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-1);
-    }
-
-    .type-label {
-      font-size: var(--text-xs);
-      color: var(--color-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--tracking-wider);
-    }
-
-    /* Comparison Box for Anti-AI-Dashboard Validation */
-    .comparison-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-6);
-    }
-
-    .anti-pattern-card {
-      background: linear-gradient(135deg, rgba(30, 40, 50, 0.9), rgba(15, 20, 25, 0.9));
-      border-radius: 16px;
-      padding: var(--space-5);
-      box-shadow: 0 10px 30px rgba(0, 255, 128, 0.15), 0 0 20px rgba(0, 255, 128, 0.1);
-      border: 1px solid rgba(0, 255, 128, 0.3);
-      position: relative;
-    }
-
-    .spec-banner {
-      display: inline-block;
-      padding: var(--space-1) var(--space-2);
-      font-size: var(--text-2xs);
-      font-family: var(--font-mono);
-      margin-bottom: var(--space-3);
-    }
-
-    @media (max-width: 768px) {
-      .grid-2, .comparison-container {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
+  <div class="app-shell">
+    <main class="app-main" id="app-main">
 
-    <!-- Top Status Header -->
-    <header class="header-strip">
-      <div>
-        <h1 style="font-size: var(--text-xl); font-weight: var(--font-weight-semibold); margin-bottom: 2px;">
-          DFSS Design Tokens & Type System
-        </h1>
-        <p style="font-size: var(--text-xs); color: var(--color-muted);">
-          Distributed Fault-Tolerant File Storage System &bull; Locked Visual Language Specification
-        </p>
-      </div>
-      <div style="display: flex; gap: var(--space-3); align-items: center;">
-        <span class="badge badge-ok">
-          <span class="status-dot dot-ok"></span> CLUSTER HEALTHY
-        </span>
-        <span class="font-mono text-xs text-muted">
-          Term #4 &bull; 3/3 Nodes Online
-        </span>
-      </div>
-    </header>
-
-    <!-- 1. Strict Font Pairing Showcase -->
-    <section class="section">
-      <h2 class="section-title">
-        <span>01</span> Dual Font Pairing System
-      </h2>
-      <p class="section-desc">
-        Strict separation between numeric telemetry (JetBrains Mono) and descriptive UI copy (Inter).
-      </p>
-
-      <div class="grid-2">
-        <!-- Monospace Data Panel -->
-        <div class="card-panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-            <h3 style="font-size: var(--text-md); color: var(--color-ink);">JetBrains Mono (System Data)</h3>
-            <span class="badge badge-info">font-mono</span>
-          </div>
-          
-          <div class="type-row">
-            <span class="type-label">Node Telemetry Identifiers</span>
-            <span class="font-mono text-sm text-ink">node-alpha-01 &bull; 192.168.1.100:8000</span>
-            <span class="font-mono text-sm text-ink">node-beta-02 &bull; 192.168.1.101:8001</span>
+      <!-- ====================================================================
+           ZONE 1: CLUSTER STATUS ZONE & SIGNATURE HEARTBEAT RAIL
+           ==================================================================== -->
+      <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
+        <!-- Top Status & Brand Strip -->
+        <div class="cluster-header-strip">
+          <div class="cluster-title-group">
+            <h1 class="cluster-brand">DFSS</h1>
+            <span class="cluster-subtitle">Distributed Fault-Tolerant File Storage System</span>
           </div>
 
-          <div class="type-row">
-            <span class="type-label">Storage Metrics & Byte Sizes</span>
-            <span class="font-mono text-sm text-ink">14.28 MB (14,973,824 B) &bull; 1.04 GB total</span>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">Consensus State & Latency Offset</span>
-            <span class="font-mono text-sm text-ok">LEADER &bull; Term #4 &bull; Commit #1042 (+12.4 ms)</span>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">UTC Timestamp & Checksum Hash</span>
-            <span class="font-mono text-xs text-muted">2026-08-24 12:11:47 UTC &bull; sha256:e3b0c44298fc1c149afbf4c8</span>
-          </div>
-        </div>
-
-        <!-- Sans-Serif Descriptive Panel -->
-        <div class="card-panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-            <h3 style="font-size: var(--text-md); color: var(--color-ink);">Inter (Descriptive UI Text)</h3>
-            <span class="badge badge-info">font-sans</span>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">Section & Header Titles</span>
-            <h4 style="font-size: var(--text-base); font-weight: var(--font-weight-semibold); color: var(--color-ink);">
-              Distributed Consensus & Replicated State Machine
-            </h4>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">Descriptive Body Copy</span>
-            <p style="font-size: var(--text-sm); color: var(--color-ink-secondary); line-height: var(--leading-relaxed);">
-              Each node independently records incoming heartbeat signals from the cluster leader. When a quorum majority agrees, log entries commit immediately.
-            </p>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">Helper & Explanatory Labels</span>
-            <span style="font-size: var(--text-xs); color: var(--color-muted);">
-              Automatic leader election triggers when no heartbeat is received within 1500ms.
-            </span>
-          </div>
-
-          <div class="type-row">
-            <span class="type-label">Empty State Guidance</span>
-            <span style="font-size: var(--text-sm); color: var(--color-ink-disabled);">
-              No files currently syncing in queue. Use upload above to distribute a new file.
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 2. Locked Color Palette Swatches -->
-    <section class="section">
-      <h2 class="section-title">
-        <span>02</span> Locked Color Palette Swatches
-      </h2>
-      <p class="section-desc">
-        Strict systems palette: No neon greens, no bright saturations, no ad-hoc hex values.
-      </p>
-
-      <div class="grid-4">
-        <!-- Canvas & Surfaces -->
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-bg); color: var(--color-ink);">Canvas Base</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-bg</span>
-            <span class="swatch-hex">#0F1210</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-surface); color: var(--color-ink);">Surface Panel</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-surface</span>
-            <span class="swatch-hex">#171B18</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-surface-subtle); color: var(--color-ink);">Surface Subtle</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-surface-subtle</span>
-            <span class="swatch-hex">#131714</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-surface-hover); color: var(--color-ink);">Surface Hover</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-surface-hover</span>
-            <span class="swatch-hex">#1E231F</span>
-          </div>
-        </div>
-
-        <!-- Hairline Lines -->
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-line); color: var(--color-ink);">Hairline Line</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-line</span>
-            <span class="swatch-hex">#2A2F2B</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-line-bright); color: var(--color-ink);">Line Bright</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-line-bright</span>
-            <span class="swatch-hex">#3D443E</span>
-          </div>
-        </div>
-
-        <!-- Inks -->
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-ink); color: #000;">Primary Ink</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-ink</span>
-            <span class="swatch-hex">#E8ECE9</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-muted); color: #000;">Muted Ink</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-muted</span>
-            <span class="swatch-hex">#8A928C</span>
-          </div>
-        </div>
-
-        <!-- Status Tokens -->
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-ok); color: #000;">OK / Leader</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-ok</span>
-            <span class="swatch-hex">#5FB88A</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-warn); color: #000;">Warn / Degraded</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-warn</span>
-            <span class="swatch-hex">#D9A441</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-down); color: #FFF;">Down / Offline</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-down</span>
-            <span class="swatch-hex">#C15B4A</span>
-          </div>
-        </div>
-
-        <div class="swatch-card">
-          <div class="swatch-preview" style="background-color: var(--color-info); color: #000;">Info / Link</div>
-          <div class="swatch-meta">
-            <span class="swatch-name">--color-info</span>
-            <span class="swatch-hex">#6499B8</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 3. Real Data Table Showcase -->
-    <section class="section">
-      <h2 class="section-title">
-        <span>03</span> Systems Data Table (0px Radius, Hairline Dividers)
-      </h2>
-      <p class="section-desc">
-        High-density systems table demonstrating strict tabular alignment and font pairing.
-      </p>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Node Identifier</th>
-            <th>Raft State</th>
-            <th>Heartbeat Status</th>
-            <th>Offset Latency</th>
-            <th>Term</th>
-            <th>Storage Used</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="font-mono">node-alpha-01</td>
-            <td><span class="badge badge-ok"><span class="status-dot dot-ok"></span> LEADER</span></td>
-            <td><span class="badge badge-ok">ONLINE</span></td>
-            <td class="font-mono">+0.0 ms</td>
-            <td class="font-mono">Term #4</td>
-            <td class="font-mono">1.04 GB</td>
-            <td><button style="padding: 2px 8px; font-size: var(--text-xs);">Inspect</button></td>
-          </tr>
-          <tr>
-            <td class="font-mono">node-beta-02</td>
-            <td><span class="badge badge-info"><span class="status-dot dot-muted"></span> FOLLOWER</span></td>
-            <td><span class="badge badge-ok">ONLINE</span></td>
-            <td class="font-mono">+12.4 ms</td>
-            <td class="font-mono">Term #4</td>
-            <td class="font-mono">1.04 GB</td>
-            <td><button style="padding: 2px 8px; font-size: var(--text-xs);">Inspect</button></td>
-          </tr>
-          <tr>
-            <td class="font-mono">node-gamma-03</td>
-            <td><span class="badge badge-warn"><span class="status-dot dot-warn"></span> CANDIDATE</span></td>
-            <td><span class="badge badge-warn">SYNCING</span></td>
-            <td class="font-mono">+148.0 ms</td>
-            <td class="font-mono">Term #4</td>
-            <td class="font-mono">812.40 MB</td>
-            <td><button style="padding: 2px 8px; font-size: var(--text-xs);">Inspect</button></td>
-          </tr>
-          <tr>
-            <td class="font-mono">node-delta-04</td>
-            <td><span class="badge badge-down"><span class="status-dot dot-down"></span> FOLLOWER</span></td>
-            <td><span class="badge badge-down">OFFLINE</span></td>
-            <td class="font-mono text-disabled">TIMEOUT</td>
-            <td class="font-mono text-disabled">Term #3</td>
-            <td class="font-mono text-disabled">0 B</td>
-            <td><button disabled style="padding: 2px 8px; font-size: var(--text-xs);">Inspect</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <!-- 4. Spacing Scale (4px Base Grid) -->
-    <section class="section">
-      <h2 class="section-title">
-        <span>04</span> 4px-Grid Spacing Scale
-      </h2>
-      <p class="section-desc">
-        Harmonious geometric rhythm based strictly on multiples of 4px.
-      </p>
-
-      <div class="card-panel">
-        <div class="spacing-row">
-          <span class="spacing-label">--space-1 (4px)</span>
-          <div class="spacing-bar" style="width: 4px;"></div>
-          <span class="font-mono text-xs text-muted">0.25rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-2 (8px)</span>
-          <div class="spacing-bar" style="width: 8px;"></div>
-          <span class="font-mono text-xs text-muted">0.50rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-3 (12px)</span>
-          <div class="spacing-bar" style="width: 12px;"></div>
-          <span class="font-mono text-xs text-muted">0.75rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-4 (16px)</span>
-          <div class="spacing-bar" style="width: 16px;"></div>
-          <span class="font-mono text-xs text-muted">1.00rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-5 (20px)</span>
-          <div class="spacing-bar" style="width: 20px;"></div>
-          <span class="font-mono text-xs text-muted">1.25rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-6 (24px)</span>
-          <div class="spacing-bar" style="width: 24px;"></div>
-          <span class="font-mono text-xs text-muted">1.50rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-8 (32px)</span>
-          <div class="spacing-bar" style="width: 32px;"></div>
-          <span class="font-mono text-xs text-muted">2.00rem</span>
-        </div>
-        <div class="spacing-row">
-          <span class="spacing-label">--space-12 (48px)</span>
-          <div class="spacing-bar" style="width: 48px;"></div>
-          <span class="font-mono text-xs text-muted">3.00rem</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- 5. Anti-AI-Dashboard Verification -->
-    <section class="section">
-      <h2 class="section-title">
-        <span>05</span> Anti-AI-Dashboard Verification (Strict Spec vs Prohibited)
-      </h2>
-      <p class="section-desc">
-        Plain reference comparison ensuring no default rounded cards, glowing neon, or diffuse shadows exist in DFSS.
-      </p>
-
-      <div class="comparison-container">
-        <!-- Compliant DFSS Spec -->
-        <div class="card-panel">
-          <span class="spec-banner badge-ok">
-            ✓ COMPLIANT: DFSS SYSTEMS SPEC
-          </span>
-          <h3 style="font-size: var(--text-md); margin-bottom: var(--space-2);">Cluster Telemetry Panel</h3>
-          <p style="font-size: var(--text-sm); color: var(--color-ink-secondary); margin-bottom: var(--space-4);">
-            Pure systems console: 0px panel radius, 1px solid hairline border (#2A2F2B), zero card drop shadows, sharp high-contrast typography.
-          </p>
-
-          <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-4);">
-            <div style="padding: var(--space-3); background-color: var(--color-surface-subtle); border: 1px solid var(--color-line); flex: 1;">
-              <span style="font-size: var(--text-xs); color: var(--color-muted); display: block;">Leader ID</span>
-              <span class="font-mono text-sm text-ok">node-01</span>
+          <!-- Telemetry Summary Strip -->
+          <div class="cluster-telemetry-strip">
+            <div class="telemetry-item">
+              <span class="telemetry-label">Status</span>
+              <span class="badge badge-ok">
+                <span class="status-dot dot-ok"></span> HEALTHY
+              </span>
             </div>
-            <div style="padding: var(--space-3); background-color: var(--color-surface-subtle); border: 1px solid var(--color-line); flex: 1;">
-              <span style="font-size: var(--text-xs); color: var(--color-muted); display: block;">Total Files</span>
-              <span class="font-mono text-sm text-ink">48 files</span>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-item">
+              <span class="telemetry-label">Leader</span>
+              <span class="telemetry-value text-ok">nodeA</span>
+            </div>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-item">
+              <span class="telemetry-label">Term</span>
+              <span class="telemetry-value">#4</span>
+            </div>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-item">
+              <span class="telemetry-label">Commit</span>
+              <span class="telemetry-value">#1042</span>
+            </div>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-item">
+              <span class="telemetry-label">Quorum</span>
+              <span class="telemetry-value text-ok">3/3</span>
+            </div>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-item">
+              <span class="telemetry-label">Storage</span>
+              <span class="telemetry-value">1.57 GB / 10.00 GB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signature Heartbeat Rail -->
+        <div class="heartbeat-rail-card" id="heartbeat-rail">
+          <div class="heartbeat-rail-header">
+            <div class="heartbeat-rail-title">
+              <span>Heartbeat Pulse Rail</span>
+              <span class="badge badge-info" style="font-size: var(--text-2xs); padding: 0 4px;">500ms Interval</span>
+            </div>
+            <div class="heartbeat-rail-legend">
+              <span><span class="status-dot dot-ok" style="width: 5px; height: 5px;"></span> Healthy</span>
+              <span><span class="status-dot dot-warn" style="width: 5px; height: 5px;"></span> Syncing</span>
+              <span><span class="status-dot dot-down" style="width: 5px; height: 5px;"></span> Missed</span>
             </div>
           </div>
 
-          <div style="display: flex; gap: var(--space-2);">
-            <button style="border-radius: var(--radius-md);">Trigger Sync</button>
-            <input type="text" placeholder="Filter node ID..." style="border-radius: var(--radius-md); width: 140px;">
+          <div class="heartbeat-lanes">
+            <!-- Lane: Node A -->
+            <div class="heartbeat-lane" id="lane-nodeA" data-node="nodeA" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeA</span>
+                <span class="badge badge-ok" style="font-size: 9px; padding: 0 3px;">LEAD</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeA">
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta text-ok">+0.0 ms &bull; :8000</div>
+            </div>
+
+            <!-- Lane: Node B -->
+            <div class="heartbeat-lane" id="lane-nodeB" data-node="nodeB" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeB</span>
+                <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeB">
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta">+8.4 ms &bull; :8001</div>
+            </div>
+
+            <!-- Lane: Node C -->
+            <div class="heartbeat-lane" id="lane-nodeC" data-node="nodeC" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeC</span>
+                <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeC">
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick tick-warn"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta">+12.1 ms &bull; :8002</div>
+            </div>
           </div>
         </div>
+      </section>
 
-        <!-- Prohibited Anti-Pattern (For Visual Comparison / Validation) -->
-        <div class="anti-pattern-card">
-          <span class="spec-banner badge-down" style="background-color: rgba(193, 91, 74, 0.2); border-color: rgba(193, 91, 74, 0.4); color: #FF7B6B;">
-            ✕ PROHIBITED: "AI DASHBOARD" SLOP
-          </span>
-          <h3 style="font-size: var(--text-md); margin-bottom: var(--space-2); color: #00FF88; text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);">
-            Neon Glow AI Card
-          </h3>
-          <p style="font-size: var(--text-sm); color: #A0C0B0; margin-bottom: var(--space-4);">
-            Pill/16px rounded corners, diffuse colored drop shadows, neon gradients, and inconsistent typography.
-          </p>
+      <!-- ====================================================================
+           LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES)
+           ==================================================================== -->
+      <div class="lower-zones-grid">
 
-          <div style="padding: var(--space-3); background: rgba(0, 255, 128, 0.05); border-radius: 12px; border: 1px solid rgba(0, 255, 128, 0.2); margin-bottom: var(--space-4);">
-            <span style="font-size: var(--text-xs); color: #00FF88; display: block;">Glow Stat</span>
-            <span style="font-size: var(--text-sm); color: #FFF; font-weight: bold;">+99.8% Sync Rate</span>
+        <!-- ==================================================================
+             ZONE 2: NODE LIST ZONE
+             ================================================================== -->
+        <section class="zone-node-list" id="zone-node-list" aria-label="Cluster Node Inventory">
+          <div class="zone-header">
+            <div class="zone-title-group">
+              <h2 class="zone-title">Cluster Nodes</h2>
+              <span class="zone-count font-mono">(3 ONLINE)</span>
+            </div>
+            <span class="zone-caption">Quorum majority active</span>
           </div>
 
-          <button style="background: linear-gradient(90deg, #00FF88, #00B4D8); border-radius: 20px; border: none; color: #000; font-weight: bold; padding: 8px 16px; box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);">
-            Auto Optimize ✨
-          </button>
-        </div>
+          <div class="node-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Node ID</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Last Pulse</th>
+                  <th>Port</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="node-row" id="node-row-nodeA" data-node="nodeA" tabindex="0">
+                  <td class="font-mono text-ink">nodeA</td>
+                  <td>
+                    <span class="badge badge-ok">
+                      <span class="status-dot dot-ok"></span> LEADER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono text-ok">+0.0 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:39 UTC</td>
+                  <td class="font-mono text-xs">:8000</td>
+                </tr>
+
+                <tr class="node-row" id="node-row-nodeB" data-node="nodeB" tabindex="0">
+                  <td class="font-mono text-ink">nodeB</td>
+                  <td>
+                    <span class="badge badge-info">
+                      <span class="status-dot dot-muted"></span> FOLLOWER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono">+8.4 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:39 UTC</td>
+                  <td class="font-mono text-xs">:8001</td>
+                </tr>
+
+                <tr class="node-row" id="node-row-nodeC" data-node="nodeC" tabindex="0">
+                  <td class="font-mono text-ink">nodeC</td>
+                  <td>
+                    <span class="badge badge-info">
+                      <span class="status-dot dot-muted"></span> FOLLOWER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono">+12.1 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:38 UTC</td>
+                  <td class="font-mono text-xs">:8002</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ZONE 3: FILE PANEL ZONE
+             ================================================================== -->
+        <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
+          <div class="zone-header">
+            <div class="zone-title-group">
+              <h2 class="zone-title">Replicated Storage</h2>
+              <span class="zone-count font-mono">(4 FILES &bull; 1.57 GB)</span>
+            </div>
+            <span class="zone-caption">3x Target Replication Factor</span>
+          </div>
+
+          <div class="file-panel-toolbar">
+            <div style="display: flex; gap: var(--space-2); flex: 1;">
+              <input type="search" placeholder="Filter filename..." style="width: 100%; max-width: 240px; font-size: var(--text-xs);" aria-label="Filter files">
+            </div>
+            <div style="display: flex; gap: var(--space-2);">
+              <button style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
+              <button style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
+            </div>
+          </div>
+
+          <div class="file-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                  <th>Replicas</th>
+                  <th>Modified</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-ink">distributed_dataset.tar.gz</td>
+                  <td class="font-mono">1.04 GB</td>
+                  <td><span class="badge badge-ok">REPLICATED (3/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill active" title="Replica stored on nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:30:00 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">wal_journal_09.log</td>
+                  <td class="font-mono">512.00 MB</td>
+                  <td><span class="badge badge-ok">REPLICATED (3/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill active" title="Replica stored on nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:40:15 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">system_kernel.img</td>
+                  <td class="font-mono">14.28 MB</td>
+                  <td><span class="badge badge-warn">SYNCING (2/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill" style="color: var(--color-warn); border-color: var(--color-warn-border);" title="Syncing to nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:44:00 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">cluster_config.json</td>
+                  <td class="font-mono">4.20 KB</td>
+                  <td><span class="badge badge-warn">DEGRADED (2/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill" style="opacity: 0.35;" title="Missing on nodeC">-</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">20:15:22 UTC</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
-    </section>
-
+    </main>
   </div>
+
+  <!-- Interactive Hover & Focus Link Between Node Rows and Heartbeat Rail -->
+  <script>
+    (function () {
+      const nodeRows = document.querySelectorAll('.node-row');
+      const lanes = document.querySelectorAll('.heartbeat-lane');
+
+      function highlightLane(nodeId, active) {
+        lanes.forEach(lane => {
+          if (lane.dataset.node === nodeId) {
+            if (active) {
+              lane.style.borderColor = 'var(--color-line-bright)';
+              lane.style.backgroundColor = 'var(--color-surface-hover)';
+            } else {
+              lane.style.borderColor = '';
+              lane.style.backgroundColor = '';
+            }
+          }
+        });
+      }
+
+      function highlightRow(nodeId, active) {
+        nodeRows.forEach(row => {
+          if (row.dataset.node === nodeId) {
+            if (active) {
+              row.style.backgroundColor = 'var(--color-surface-hover)';
+            } else {
+              row.style.backgroundColor = '';
+            }
+          }
+        });
+      }
+
+      nodeRows.forEach(row => {
+        const nodeId = row.dataset.node;
+        row.addEventListener('mouseenter', () => highlightLane(nodeId, true));
+        row.addEventListener('mouseleave', () => highlightLane(nodeId, false));
+        row.addEventListener('focus', () => highlightLane(nodeId, true));
+        row.addEventListener('blur', () => highlightLane(nodeId, false));
+      });
+
+      lanes.forEach(lane => {
+        const nodeId = lane.dataset.node;
+        lane.addEventListener('mouseenter', () => highlightRow(nodeId, true));
+        lane.addEventListener('mouseleave', () => highlightRow(nodeId, false));
+        lane.addEventListener('focus', () => highlightRow(nodeId, true));
+        lane.addEventListener('blur', () => highlightRow(nodeId, false));
+      });
+    })();
+  </script>
 </body>
 </html>
