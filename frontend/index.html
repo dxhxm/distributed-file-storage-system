@@ -9,19 +9,14 @@
 <body>
   <div class="app-shell">
     <main class="app-main" id="app-main">
-
-      <!-- ====================================================================
-           ZONE 1: CLUSTER STATUS ZONE & SIGNATURE HEARTBEAT RAIL
-           ==================================================================== -->
+      <!-- Zone 1: Cluster Status & Signature Heartbeat Rail -->
       <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
-        <!-- Top Status & Brand Strip -->
         <div class="cluster-header-strip">
           <div class="cluster-title-group">
             <h1 class="cluster-brand">DFSS</h1>
             <span class="cluster-subtitle">Distributed Fault-Tolerant File Storage System</span>
           </div>
 
-          <!-- Telemetry Summary Strip -->
           <div class="cluster-telemetry-strip">
             <div class="telemetry-item">
               <span class="telemetry-label">Status</span>
@@ -29,45 +24,38 @@
                 <span class="status-dot dot-ok"></span> HEALTHY
               </span>
             </div>
-
             <div class="telemetry-divider" aria-hidden="true"></div>
-
             <div class="telemetry-item">
               <span class="telemetry-label">Leader</span>
               <span class="telemetry-value text-ok">nodeA</span>
             </div>
-
             <div class="telemetry-divider" aria-hidden="true"></div>
-
             <div class="telemetry-item">
               <span class="telemetry-label">Term</span>
               <span class="telemetry-value">#4</span>
             </div>
-
             <div class="telemetry-divider" aria-hidden="true"></div>
-
             <div class="telemetry-item">
               <span class="telemetry-label">Commit</span>
               <span class="telemetry-value">#1042</span>
             </div>
-
             <div class="telemetry-divider" aria-hidden="true"></div>
-
             <div class="telemetry-item">
               <span class="telemetry-label">Quorum</span>
               <span class="telemetry-value text-ok">3/3</span>
             </div>
-
             <div class="telemetry-divider" aria-hidden="true"></div>
-
             <div class="telemetry-item">
               <span class="telemetry-label">Storage</span>
               <span class="telemetry-value">1.57 GB / 10.00 GB</span>
             </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item" id="backend-connectivity-item">
+              <span class="badge badge-ok" title="Backend reached"><span class="status-dot dot-ok"></span> API LIVE</span>
+            </div>
           </div>
         </div>
 
-        <!-- Signature Heartbeat Rail -->
         <div class="heartbeat-rail-card" id="heartbeat-rail">
           <div class="heartbeat-rail-header">
             <div class="heartbeat-rail-title">
@@ -82,7 +70,6 @@
           </div>
 
           <div class="heartbeat-lanes">
-            <!-- Lane: Node A -->
             <div class="heartbeat-lane" id="lane-nodeA" data-node="nodeA" tabindex="0">
               <div class="lane-node-id">
                 <span class="status-dot dot-ok"></span>
@@ -90,31 +77,15 @@
                 <span class="badge badge-ok" style="font-size: 9px; padding: 0 3px;">LEAD</span>
               </div>
               <div class="lane-track" title="Recent Heartbeats for nodeA">
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
               </div>
               <div class="lane-meta text-ok">+0.0 ms &bull; :8000</div>
             </div>
 
-            <!-- Lane: Node B -->
             <div class="heartbeat-lane" id="lane-nodeB" data-node="nodeB" tabindex="0">
               <div class="lane-node-id">
                 <span class="status-dot dot-ok"></span>
@@ -122,31 +93,15 @@
                 <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
               </div>
               <div class="lane-track" title="Recent Heartbeats for nodeB">
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
               </div>
               <div class="lane-meta">+8.4 ms &bull; :8001</div>
             </div>
 
-            <!-- Lane: Node C -->
             <div class="heartbeat-lane" id="lane-nodeC" data-node="nodeC" tabindex="0">
               <div class="lane-node-id">
                 <span class="status-dot dot-ok"></span>
@@ -154,26 +109,11 @@
                 <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
               </div>
               <div class="lane-track" title="Recent Heartbeats for nodeC">
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick tick-warn"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
-                <span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick tick-warn"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
               </div>
               <div class="lane-meta">+12.1 ms &bull; :8002</div>
             </div>
@@ -181,14 +121,9 @@
         </div>
       </section>
 
-      <!-- ====================================================================
-           LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES)
-           ==================================================================== -->
+      <!-- Lower Two-Column Grid: Zone 2 & Zone 3 -->
       <div class="lower-zones-grid">
-
-        <!-- ==================================================================
-             ZONE 2: NODE LIST ZONE
-             ================================================================== -->
+        <!-- Zone 2: Node List Zone -->
         <section class="zone-node-list" id="zone-node-list" aria-label="Cluster Node Inventory">
           <div class="zone-header">
             <div class="zone-title-group">
@@ -254,9 +189,7 @@
           </div>
         </section>
 
-        <!-- ==================================================================
-             ZONE 3: FILE PANEL ZONE
-             ================================================================== -->
+        <!-- Zone 3: File Panel Zone -->
         <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
           <div class="zone-header">
             <div class="zone-title-group">
@@ -347,59 +280,10 @@
             </table>
           </div>
         </section>
-
       </div>
     </main>
   </div>
 
-  <!-- Interactive Hover & Focus Link Between Node Rows and Heartbeat Rail -->
-  <script>
-    (function () {
-      const nodeRows = document.querySelectorAll('.node-row');
-      const lanes = document.querySelectorAll('.heartbeat-lane');
-
-      function highlightLane(nodeId, active) {
-        lanes.forEach(lane => {
-          if (lane.dataset.node === nodeId) {
-            if (active) {
-              lane.style.borderColor = 'var(--color-line-bright)';
-              lane.style.backgroundColor = 'var(--color-surface-hover)';
-            } else {
-              lane.style.borderColor = '';
-              lane.style.backgroundColor = '';
-            }
-          }
-        });
-      }
-
-      function highlightRow(nodeId, active) {
-        nodeRows.forEach(row => {
-          if (row.dataset.node === nodeId) {
-            if (active) {
-              row.style.backgroundColor = 'var(--color-surface-hover)';
-            } else {
-              row.style.backgroundColor = '';
-            }
-          }
-        });
-      }
-
-      nodeRows.forEach(row => {
-        const nodeId = row.dataset.node;
-        row.addEventListener('mouseenter', () => highlightLane(nodeId, true));
-        row.addEventListener('mouseleave', () => highlightLane(nodeId, false));
-        row.addEventListener('focus', () => highlightLane(nodeId, true));
-        row.addEventListener('blur', () => highlightLane(nodeId, false));
-      });
-
-      lanes.forEach(lane => {
-        const nodeId = lane.dataset.node;
-        lane.addEventListener('mouseenter', () => highlightRow(nodeId, true));
-        lane.addEventListener('mouseleave', () => highlightRow(nodeId, false));
-        lane.addEventListener('focus', () => highlightRow(nodeId, true));
-        lane.addEventListener('blur', () => highlightRow(nodeId, false));
-      });
-    })();
-  </script>
+  <script type="module" src="./src/main.ts"></script>
 </body>
 </html>
