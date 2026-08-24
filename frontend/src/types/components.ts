@@ -9,30 +9,39 @@ import type {
   FileInfo,
 } from './api.ts';
 
+export type ViewState = 'normal' | 'loading' | 'empty' | 'error';
+
 export interface ClusterStatusProps {
   status: ClusterStatusResponse | null;
-  isLoading: boolean;
-  error?: string | null;
+  state?: ViewState;
+  errorMessage?: string;
+  isLoading?: boolean;
 }
 
 export interface HeartbeatRailProps {
-  nodes: NodeInfo[];
+  nodes?: NodeInfo[];
+  state?: ViewState;
+  errorMessage?: string;
   activeNodeId?: string | null;
   onSelectNode?: (nodeId: string) => void;
 }
 
 export interface NodeListProps {
-  nodes: NodeInfo[];
+  nodes?: NodeInfo[];
+  state?: ViewState;
+  errorMessage?: string;
   activeNodeId?: string | null;
   onHoverNode?: (nodeId: string | null) => void;
   onSelectNode?: (nodeId: string) => void;
 }
 
 export interface FilePanelProps {
-  files: FileInfo[];
-  totalFiles: number;
-  totalSizeBytes: number;
-  isLoading: boolean;
+  files?: FileInfo[];
+  state?: ViewState;
+  errorMessage?: string;
+  totalFiles?: number;
+  totalSizeBytes?: number;
+  isLoading?: boolean;
   onUpload?: (file: File) => void;
   onSync?: () => void;
 }

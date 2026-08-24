@@ -12,6 +12,9 @@ import {
   renderNodeList,
   renderFilePanel,
 } from './components/index.ts';
+import type { ViewState } from './types/components.ts';
+
+let currentViewState: ViewState = 'normal';
 
 function attachInteractiveHoverLinks(): void {
   const nodeRows = document.querySelectorAll<HTMLElement>('.node-row');
@@ -64,35 +67,74 @@ function attachInteractiveHoverLinks(): void {
   });
 }
 
+function attachStateSwitcherListeners(): void {
+  const stateBtns = document.querySelectorAll<HTMLButtonElement>('.state-btn');
+  stateBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetState = btn.dataset.state as ViewState;
+      if (targetState) {
+        setViewState(targetState);
+      }
+    });
+  });
+}
+
+export function setViewState(state: ViewState): void {
+  currentViewState = state;
+  renderDashboard();
+}
+
+export function getViewState(): ViewState {
+  return currentViewState;
+}
+
 function renderDashboard(): void {
   const appContainer = document.getElementById('app-main');
   if (!appContainer) return;
 
   const currentHealth = healthService.getLastResult();
 
+  const switcherHtml = `
+    <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
+      <span style="font-size: var(--text-2xs); color: var(--color-muted); font-family: var(--font-mono); text-transform: uppercase;">State Preview:</span>
+      <div class="state-switcher-toolbar" role="toolbar" aria-label="Visual State Switcher">
+        <button class="state-btn ${currentViewState === 'normal' ? 'active' : ''}" data-state="normal">LIVE</button>
+        <button class="state-btn ${currentViewState === 'loading' ? 'active' : ''}" data-state="loading">LOADING</button>
+        <button class="state-btn ${currentViewState === 'empty' ? 'active' : ''}" data-state="empty">EMPTY</button>
+        <button class="state-btn ${currentViewState === 'error' ? 'active' : ''}" data-state="error">ERROR</button>
+      </div>
+    </div>
+  `;
+
   appContainer.innerHTML = `
+    ${switcherHtml}
+
     <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
     <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
       <div id="cluster-status-root">
-        ${renderClusterStatus(null, currentHealth.status, currentHealth.latencyMs)}
+        ${renderClusterStatus(null, currentHealth.status, currentHealth.latencyMs, currentViewState)}
       </div>
       <div id="heartbeat-rail-root">
-        ${renderHeartbeatRail()}
+        ${renderHeartbeatRail([], currentViewState)}
       </div>
     </section>
 
     <!-- LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES) -->
     <div class="lower-zones-grid">
       <div id="node-list-root">
-        ${renderNodeList()}
+        ${renderNodeList([], currentViewState)}
       </div>
       <div id="file-panel-root">
-        ${renderFilePanel()}
+        ${renderFilePanel([], currentViewState)}
       </div>
     </div>
   `;
 
-  attachInteractiveHoverLinks();
+  attachStateSwitcherListeners();
+
+  if (currentViewState === 'normal') {
+    attachInteractiveHoverLinks();
+  }
 }
 
 function init(): void {
@@ -107,6 +149,7 @@ function init(): void {
 
   // Subscribe to health monitoring for live backend indicator
   healthService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
     const connectivityItem = document.getElementById('backend-connectivity-item');
     if (connectivityItem) {
       if (result.reachable) {

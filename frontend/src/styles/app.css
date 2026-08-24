@@ -369,3 +369,132 @@
     align-items: stretch;
   }
 }
+
+/* ==========================================================================
+   7. SKELETON LOADING, EMPTY, & ERROR STATE SHELLS
+   (RESTRAINED MOTION, NO SPINNER CLICHES, SYSTEMS-VOICE COPY)
+   ========================================================================== */
+
+/* Subtle Skeleton Pulse Animation (No spinners) */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.skeleton-box {
+  background-color: var(--color-surface-subtle);
+  border: 1px solid var(--color-line-subtle);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+.skeleton-bar {
+  height: 12px;
+  background-color: var(--color-surface-hover);
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-box,
+  .skeleton-bar {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* Base State Container Panel */
+.state-panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  padding: var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.state-header-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.state-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-ink);
+}
+
+.state-message {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--color-ink-secondary);
+  line-height: var(--leading-relaxed);
+  max-width: 640px;
+}
+
+.state-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.state-action-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* Error State Overrides */
+.error-state-panel {
+  border-color: var(--color-down-border);
+  background-color: var(--color-surface);
+}
+
+.error-state-panel .state-title {
+  color: var(--color-down);
+}
+
+.error-state-panel .state-message {
+  color: var(--color-ink-secondary);
+}
+
+/* State Switcher Controls */
+.state-switcher-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-2);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-none);
+}
+
+.state-btn {
+  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+}
+
+.state-btn:hover {
+  color: var(--color-ink);
+  background-color: var(--color-surface-hover);
+}
+
+.state-btn.active {
+  color: var(--color-ink);
+  background-color: var(--color-surface-active);
+  border-color: var(--color-line-bright);
+}
+

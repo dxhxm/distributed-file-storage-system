@@ -4,8 +4,89 @@
  */
 
 import type { NodeInfo } from '../types/api.ts';
+import type { ViewState } from '../types/components.ts';
 
-export function renderHeartbeatRail(nodes: NodeInfo[] = []): string {
+export function renderHeartbeatRailSkeleton(): string {
+  return `
+    <div class="heartbeat-rail-card" id="heartbeat-rail">
+      <div class="heartbeat-rail-header">
+        <div class="heartbeat-rail-title">
+          <span>Heartbeat Pulse Rail</span>
+          <span class="badge badge-info" style="font-size: var(--text-2xs); padding: 0 4px;">Connecting...</span>
+        </div>
+      </div>
+
+      <div class="heartbeat-lanes" id="heartbeat-lanes-container">
+        <div class="heartbeat-lane skeleton-box" style="height: 28px;">
+          <div class="skeleton-bar" style="width: 80px;"></div>
+          <div class="skeleton-bar" style="width: 100%; height: 6px;"></div>
+          <div class="skeleton-bar" style="width: 60px;"></div>
+        </div>
+        <div class="heartbeat-lane skeleton-box" style="height: 28px;">
+          <div class="skeleton-bar" style="width: 80px;"></div>
+          <div class="skeleton-bar" style="width: 100%; height: 6px;"></div>
+          <div class="skeleton-bar" style="width: 60px;"></div>
+        </div>
+        <div class="heartbeat-lane skeleton-box" style="height: 28px;">
+          <div class="skeleton-bar" style="width: 80px;"></div>
+          <div class="skeleton-bar" style="width: 100%; height: 6px;"></div>
+          <div class="skeleton-bar" style="width: 60px;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderHeartbeatRailEmpty(): string {
+  return `
+    <div class="heartbeat-rail-card" id="heartbeat-rail">
+      <div class="heartbeat-rail-header">
+        <div class="heartbeat-rail-title">
+          <span>Heartbeat Pulse Rail</span>
+          <span class="badge badge-warn" style="font-size: var(--text-2xs); padding: 0 4px;">Awaiting Pulses</span>
+        </div>
+      </div>
+
+      <div style="padding: var(--space-4) var(--space-3); background-color: var(--color-surface-subtle); border: 1px solid var(--color-line-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <p style="font-size: var(--text-xs); color: var(--color-muted);">
+          No peer heartbeat signals detected. Cluster nodes have not yet broadcast status frames.
+        </p>
+        <button id="btn-probe-rail" style="font-size: var(--text-xs); padding: 2px 8px;">Broadcast Probe</button>
+      </div>
+    </div>
+  `;
+}
+
+export function renderHeartbeatRailError(errorMsg?: string): string {
+  const message = errorMsg || 'Heartbeat pulse stream disconnected. Coordinator at port 8000 is unreachable.';
+  return `
+    <div class="heartbeat-rail-card" id="heartbeat-rail" style="border-color: var(--color-down-border);">
+      <div class="heartbeat-rail-header">
+        <div class="heartbeat-rail-title">
+          <span>Heartbeat Pulse Rail</span>
+          <span class="badge badge-down" style="font-size: var(--text-2xs); padding: 0 4px;">STREAM OFFLINE</span>
+        </div>
+      </div>
+
+      <div style="padding: var(--space-4) var(--space-3); background-color: var(--color-surface-subtle); border: 1px solid var(--color-down-border); display: flex; justify-content: space-between; align-items: center;">
+        <p style="font-size: var(--text-xs); color: var(--color-ink-secondary);">
+          ${message}
+        </p>
+        <button id="btn-reconnect-rail" style="font-size: var(--text-xs); padding: 2px 8px; border-color: var(--color-down-border);">Reconnect Rail</button>
+      </div>
+    </div>
+  `;
+}
+
+export function renderHeartbeatRail(
+  nodes: NodeInfo[] = [],
+  viewState: ViewState = 'normal',
+  errorMessage?: string
+): string {
+  if (viewState === 'loading') return renderHeartbeatRailSkeleton();
+  if (viewState === 'empty') return renderHeartbeatRailEmpty();
+  if (viewState === 'error') return renderHeartbeatRailError(errorMessage);
+
   const defaultNodes: NodeInfo[] = nodes.length > 0 ? nodes : [
     { id: 'nodeA', state: 'LEADER', status: 'ONLINE', last_heartbeat: Date.now() / 1000, url: 'http://localhost:8000' },
     { id: 'nodeB', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: Date.now() / 1000, url: 'http://localhost:8001' },
