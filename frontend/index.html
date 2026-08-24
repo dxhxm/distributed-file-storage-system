@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFSS — Distributed File Storage System</title>
+  <link rel="stylesheet" href="./src/styles/index.css">
+</head>
+<body>
+  <div class="app-shell">
+    <main class="app-main" id="app-main">
+      <!-- Zone 1: Cluster Status & Signature Heartbeat Rail -->
+      <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
+        <div class="cluster-header-strip">
+          <div class="cluster-title-group">
+            <h1 class="cluster-brand">DFSS</h1>
+            <span class="cluster-subtitle">Distributed Fault-Tolerant File Storage System</span>
+          </div>
+
+          <div class="cluster-telemetry-strip">
+            <div class="telemetry-item">
+              <span class="telemetry-label">Status</span>
+              <span class="badge badge-ok">
+                <span class="status-dot dot-ok"></span> HEALTHY
+              </span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Leader</span>
+              <span class="telemetry-value text-ok">nodeA</span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Term</span>
+              <span class="telemetry-value">#4</span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Commit</span>
+              <span class="telemetry-value">#1042</span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Quorum</span>
+              <span class="telemetry-value text-ok">3/3</span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Storage</span>
+              <span class="telemetry-value">1.57 GB / 10.00 GB</span>
+            </div>
+            <div class="telemetry-divider" aria-hidden="true"></div>
+            <div class="telemetry-item" id="backend-connectivity-item">
+              <span class="badge badge-ok" title="Backend reached"><span class="status-dot dot-ok"></span> API LIVE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="heartbeat-rail-card" id="heartbeat-rail">
+          <div class="heartbeat-rail-header">
+            <div class="heartbeat-rail-title">
+              <span>Heartbeat Pulse Rail</span>
+              <span class="badge badge-info" style="font-size: var(--text-2xs); padding: 0 4px;">500ms Interval</span>
+            </div>
+            <div class="heartbeat-rail-legend">
+              <span><span class="status-dot dot-ok" style="width: 5px; height: 5px;"></span> Healthy</span>
+              <span><span class="status-dot dot-warn" style="width: 5px; height: 5px;"></span> Syncing</span>
+              <span><span class="status-dot dot-down" style="width: 5px; height: 5px;"></span> Missed</span>
+            </div>
+          </div>
+
+          <div class="heartbeat-lanes">
+            <div class="heartbeat-lane" id="lane-nodeA" data-node="nodeA" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeA</span>
+                <span class="badge badge-ok" style="font-size: 9px; padding: 0 3px;">LEAD</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeA">
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta text-ok">+0.0 ms &bull; :8000</div>
+            </div>
+
+            <div class="heartbeat-lane" id="lane-nodeB" data-node="nodeB" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeB</span>
+                <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeB">
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta">+8.4 ms &bull; :8001</div>
+            </div>
+
+            <div class="heartbeat-lane" id="lane-nodeC" data-node="nodeC" tabindex="0">
+              <div class="lane-node-id">
+                <span class="status-dot dot-ok"></span>
+                <span class="text-ink">nodeC</span>
+                <span class="badge badge-info" style="font-size: 9px; padding: 0 3px;">FOLL</span>
+              </div>
+              <div class="lane-track" title="Recent Heartbeats for nodeC">
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick tick-warn"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+                <span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span><span class="pulse-tick"></span>
+              </div>
+              <div class="lane-meta">+12.1 ms &bull; :8002</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lower Two-Column Grid: Zone 2 & Zone 3 -->
+      <div class="lower-zones-grid">
+        <!-- Zone 2: Node List Zone -->
+        <section class="zone-node-list" id="zone-node-list" aria-label="Cluster Node Inventory">
+          <div class="zone-header">
+            <div class="zone-title-group">
+              <h2 class="zone-title">Cluster Nodes</h2>
+              <span class="zone-count font-mono">(3 ONLINE)</span>
+            </div>
+            <span class="zone-caption">Quorum majority active</span>
+          </div>
+
+          <div class="node-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Node ID</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Last Pulse</th>
+                  <th>Port</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="node-row" id="node-row-nodeA" data-node="nodeA" tabindex="0">
+                  <td class="font-mono text-ink">nodeA</td>
+                  <td>
+                    <span class="badge badge-ok">
+                      <span class="status-dot dot-ok"></span> LEADER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono text-ok">+0.0 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:39 UTC</td>
+                  <td class="font-mono text-xs">:8000</td>
+                </tr>
+
+                <tr class="node-row" id="node-row-nodeB" data-node="nodeB" tabindex="0">
+                  <td class="font-mono text-ink">nodeB</td>
+                  <td>
+                    <span class="badge badge-info">
+                      <span class="status-dot dot-muted"></span> FOLLOWER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono">+8.4 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:39 UTC</td>
+                  <td class="font-mono text-xs">:8001</td>
+                </tr>
+
+                <tr class="node-row" id="node-row-nodeC" data-node="nodeC" tabindex="0">
+                  <td class="font-mono text-ink">nodeC</td>
+                  <td>
+                    <span class="badge badge-info">
+                      <span class="status-dot dot-muted"></span> FOLLOWER
+                    </span>
+                  </td>
+                  <td><span class="text-ok font-mono text-xs">ONLINE</span></td>
+                  <td class="font-mono">+12.1 ms</td>
+                  <td class="font-mono text-xs text-muted">21:46:38 UTC</td>
+                  <td class="font-mono text-xs">:8002</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Zone 3: File Panel Zone -->
+        <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
+          <div class="zone-header">
+            <div class="zone-title-group">
+              <h2 class="zone-title">Replicated Storage</h2>
+              <span class="zone-count font-mono">(4 FILES &bull; 1.57 GB)</span>
+            </div>
+            <span class="zone-caption">3x Target Replication Factor</span>
+          </div>
+
+          <div class="file-panel-toolbar">
+            <div style="display: flex; gap: var(--space-2); flex: 1;">
+              <input type="search" placeholder="Filter filename..." style="width: 100%; max-width: 240px; font-size: var(--text-xs);" aria-label="Filter files">
+            </div>
+            <div style="display: flex; gap: var(--space-2);">
+              <button style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
+              <button style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
+            </div>
+          </div>
+
+          <div class="file-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                  <th>Replicas</th>
+                  <th>Modified</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-ink">distributed_dataset.tar.gz</td>
+                  <td class="font-mono">1.04 GB</td>
+                  <td><span class="badge badge-ok">REPLICATED (3/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill active" title="Replica stored on nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:30:00 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">wal_journal_09.log</td>
+                  <td class="font-mono">512.00 MB</td>
+                  <td><span class="badge badge-ok">REPLICATED (3/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill active" title="Replica stored on nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:40:15 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">system_kernel.img</td>
+                  <td class="font-mono">14.28 MB</td>
+                  <td><span class="badge badge-warn">SYNCING (2/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill" style="color: var(--color-warn); border-color: var(--color-warn-border);" title="Syncing to nodeC">C</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">21:44:00 UTC</td>
+                </tr>
+
+                <tr>
+                  <td class="font-mono text-ink">cluster_config.json</td>
+                  <td class="font-mono">4.20 KB</td>
+                  <td><span class="badge badge-warn">DEGRADED (2/3)</span></td>
+                  <td>
+                    <div class="replica-pills">
+                      <span class="replica-pill active" title="Replica stored on nodeA">A</span>
+                      <span class="replica-pill active" title="Replica stored on nodeB">B</span>
+                      <span class="replica-pill" style="opacity: 0.35;" title="Missing on nodeC">-</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-xs text-muted">20:15:22 UTC</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

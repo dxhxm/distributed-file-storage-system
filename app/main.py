@@ -1,6 +1,15 @@
+import os
+import sys
 import asyncio
 from contextlib import asynccontextmanager
+
+# Ensure project root is in sys.path for direct module resolution
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.consensus import router as consensus_router, consensus_service
 from app.api import health
 from app.api import time_sync
@@ -36,6 +45,15 @@ app = FastAPI(
     description="Base FastAPI server for distributed nodes",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Enable CORS for Web UI cross-node communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register all routers
