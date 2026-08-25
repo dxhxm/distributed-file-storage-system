@@ -4,7 +4,54 @@
  */
 
 import type { NodeInfo } from '../types/api.ts';
+import type { NodeHeartbeatState } from '../services/heartbeatService.ts';
 import type { ViewState } from '../types/components.ts';
+
+export function formatTimeUTC(timestampSecOrMs: number): string {
+  if (!timestampSecOrMs || isNaN(timestampSecOrMs)) return '—';
+  const ms = timestampSecOrMs < 1e11 ? timestampSecOrMs * 1000 : timestampSecOrMs;
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? '—' : `${d.toISOString().slice(11, 19)} UTC`;
+}
+
+function sortNodesStable<T extends NodeInfo | NodeHeartbeatState>(nodes: T[]): T[] {
+  return [...nodes].sort((a, b) => {
+    const idA = 'displayName' in a ? a.displayName : a.id;
+    const idB = 'displayName' in b ? b.displayName : b.id;
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+export function renderNodeRow(node: NodeInfo | NodeHeartbeatState): string {
+  const isLeader = node.state === 'LEADER';
+  const isCandidate = node.state === 'CANDIDATE';
+  const isOnline = node.status === 'ONLINE';
+  const badgeClass = isLeader ? 'badge-ok' : isCandidate ? 'badge-warn' : 'badge-info';
+  const dotClass = isOnline ? (isLeader ? 'dot-ok' : 'dot-muted') : 'dot-down';
+  const latency = isOnline
+    ? (isLeader ? '+0.0 ms' : ('latencyMs' in node ? `+${node.latencyMs.toFixed(1)} ms` : (node.id.includes('B') || node.id.includes('b') ? '+8.4 ms' : '+12.1 ms')))
+    : '—';
+  const port = 'port' in node ? node.port : (node.url ? `:${new URL(node.url).port || '8000'}` : ':8000');
+  const rawTimestamp = 'last_heartbeat' in node ? node.last_heartbeat : ('lastHeartbeat' in node ? node.lastHeartbeat : 0);
+  const timestamp = formatTimeUTC(rawTimestamp);
+  const displayName = 'displayName' in node ? node.displayName : node.id;
+  const dataKey = node.id.replace(/\s+/g, '').replace(/^node/i, 'node');
+
+  return `
+    <tr class="node-row" id="node-row-${dataKey}" data-node="${dataKey}" tabindex="0">
+      <td class="font-mono text-ink">${displayName}</td>
+      <td>
+        <span class="badge ${badgeClass}">
+          <span class="status-dot ${dotClass}"></span> ${node.state}
+        </span>
+      </td>
+      <td><span class="${isOnline ? 'text-ok' : 'text-down'} font-mono text-xs">${node.status}</span></td>
+      <td class="font-mono ${isLeader ? 'text-ok' : ''}">${latency}</td>
+      <td class="font-mono text-xs text-muted">${timestamp}</td>
+      <td class="font-mono text-xs">${port}</td>
+    </tr>
+  `;
+}
 
 export function renderNodeListSkeleton(): string {
   return `
@@ -12,9 +59,9 @@ export function renderNodeListSkeleton(): string {
       <div class="zone-header">
         <div class="zone-title-group">
           <h2 class="zone-title">Cluster Nodes</h2>
-          <span class="zone-count font-mono">(SCANNING...)</span>
+          <span class="zone-count font-mono" id="node-list-count">(SCANNING...)</span>
         </div>
-        <span class="zone-caption">Querying cluster topology</span>
+        <span class="zone-caption" id="node-list-caption">Querying cluster topology</span>
       </div>
 
       <div class="node-table-container">
@@ -29,7 +76,7 @@ export function renderNodeListSkeleton(): string {
               <th>Port</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="node-table-tbody">
             <tr>
               <td><span class="skeleton-bar" style="width: 70px;"></span></td>
               <td><span class="skeleton-bar" style="width: 55px;"></span></td>
@@ -67,9 +114,9 @@ export function renderNodeListEmpty(): string {
       <div class="zone-header">
         <div class="zone-title-group">
           <h2 class="zone-title">Cluster Nodes</h2>
-          <span class="zone-count font-mono text-warn">(0 DISCOVERED)</span>
+          <span class="zone-count font-mono text-warn" id="node-list-count">(0 DISCOVERED)</span>
         </div>
-        <span class="zone-caption">No active membership</span>
+        <span class="zone-caption" id="node-list-caption">No active membership</span>
       </div>
 
       <div class="state-panel empty-state-panel" id="node-list-empty">
@@ -95,9 +142,9 @@ export function renderNodeListError(errorMsg?: string): string {
       <div class="zone-header">
         <div class="zone-title-group">
           <h2 class="zone-title">Cluster Nodes</h2>
-          <span class="zone-count font-mono text-down">(TOPOLOGY ERROR)</span>
+          <span class="zone-count font-mono text-down" id="node-list-count">(TOPOLOGY ERROR)</span>
         </div>
-        <span class="zone-caption text-down">Query failed</span>
+        <span class="zone-caption text-down" id="node-list-caption">Query failed</span>
       </div>
 
       <div class="state-panel error-state-panel" id="node-list-error">
@@ -117,7 +164,7 @@ export function renderNodeListError(errorMsg?: string): string {
 }
 
 export function renderNodeList(
-  nodes: NodeInfo[] = [],
+  nodes: Array<NodeInfo | NodeHeartbeatState> = [],
   viewState: ViewState = 'normal',
   errorMessage?: string
 ): string {
@@ -125,46 +172,25 @@ export function renderNodeList(
   if (viewState === 'empty') return renderNodeListEmpty();
   if (viewState === 'error') return renderNodeListError(errorMessage);
 
-  const defaultNodes: NodeInfo[] = nodes.length > 0 ? nodes : [
-    { id: 'nodeA', state: 'LEADER', status: 'ONLINE', last_heartbeat: Date.now() / 1000, url: 'http://localhost:8000' },
-    { id: 'nodeB', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: Date.now() / 1000, url: 'http://localhost:8001' },
-    { id: 'nodeC', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: Date.now() / 1000, url: 'http://localhost:8002' },
+  const defaultNodes = nodes.length > 0 ? nodes : [
+    { id: 'nodeA', displayName: 'nodeA', state: 'LEADER' as const, status: 'ONLINE' as const, last_heartbeat: Date.now() / 1000, latencyMs: 0, port: ':8000' },
+    { id: 'nodeB', displayName: 'nodeB', state: 'FOLLOWER' as const, status: 'ONLINE' as const, last_heartbeat: Date.now() / 1000, latencyMs: 8.4, port: ':8001' },
+    { id: 'nodeC', displayName: 'nodeC', state: 'FOLLOWER' as const, status: 'ONLINE' as const, last_heartbeat: Date.now() / 1000, latencyMs: 12.1, port: ':8002' },
   ];
 
-  const onlineCount = defaultNodes.filter(n => n.status === 'ONLINE').length;
-
-  const rowsHtml = defaultNodes.map(node => {
-    const isLeader = node.state === 'LEADER';
-    const isOnline = node.status === 'ONLINE';
-    const badgeClass = isLeader ? 'badge-ok' : 'badge-info';
-    const dotClass = isOnline ? (isLeader ? 'dot-ok' : 'dot-muted') : 'dot-down';
-    const latency = isLeader ? '+0.0 ms' : node.id === 'nodeB' ? '+8.4 ms' : '+12.1 ms';
-    const port = node.url ? `:${new URL(node.url).port || '8000'}` : ':8000';
-
-    return `
-      <tr class="node-row" id="node-row-${node.id}" data-node="${node.id}" tabindex="0">
-        <td class="font-mono text-ink">${node.id}</td>
-        <td>
-          <span class="badge ${badgeClass}">
-            <span class="status-dot ${dotClass}"></span> ${node.state}
-          </span>
-        </td>
-        <td><span class="${isOnline ? 'text-ok' : 'text-down'} font-mono text-xs">${node.status}</span></td>
-        <td class="font-mono ${isLeader ? 'text-ok' : ''}">${latency}</td>
-        <td class="font-mono text-xs text-muted">21:46:39 UTC</td>
-        <td class="font-mono text-xs">${port}</td>
-      </tr>
-    `;
-  }).join('');
+  const sortedNodes = sortNodesStable(defaultNodes);
+  const onlineCount = sortedNodes.filter(n => n.status === 'ONLINE').length;
+  const quorumActive = onlineCount >= 2;
+  const rowsHtml = sortedNodes.map(node => renderNodeRow(node)).join('');
 
   return `
     <section class="zone-node-list" id="zone-node-list" aria-label="Cluster Node Inventory">
       <div class="zone-header">
         <div class="zone-title-group">
           <h2 class="zone-title">Cluster Nodes</h2>
-          <span class="zone-count font-mono">(${onlineCount} ONLINE)</span>
+          <span class="zone-count font-mono" id="node-list-count">(${onlineCount} ONLINE)</span>
         </div>
-        <span class="zone-caption">Quorum majority active</span>
+        <span class="zone-caption" id="node-list-caption">${quorumActive ? 'Quorum majority active' : 'Quorum lost'}</span>
       </div>
 
       <div class="node-table-container">
@@ -179,7 +205,7 @@ export function renderNodeList(
               <th>Port</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="node-table-tbody">
             ${rowsHtml}
           </tbody>
         </table>
@@ -187,3 +213,36 @@ export function renderNodeList(
     </section>
   `;
 }
+
+/**
+ * High-performance in-place DOM updater for Zone 2 Node List.
+ * Updates rows and header metrics without table re-creation.
+ */
+export function updateNodeListDOM(nodes: Array<NodeInfo | NodeHeartbeatState>): void {
+  const tbody = document.getElementById('node-table-tbody');
+  const countEl = document.getElementById('node-list-count');
+  const captionEl = document.getElementById('node-list-caption');
+
+  if (!tbody) {
+    const root = document.getElementById('node-list-root');
+    if (root) {
+      root.innerHTML = renderNodeList(nodes, 'normal');
+    }
+    return;
+  }
+
+  const sortedNodes = sortNodesStable(nodes);
+  const onlineCount = sortedNodes.filter(n => n.status === 'ONLINE').length;
+  const quorumActive = onlineCount >= 2;
+
+  tbody.innerHTML = sortedNodes.map(node => renderNodeRow(node)).join('');
+
+  if (countEl) {
+    countEl.textContent = `(${onlineCount} ONLINE)`;
+  }
+  if (captionEl) {
+    captionEl.textContent = quorumActive ? 'Quorum majority active' : 'Quorum lost';
+    captionEl.className = quorumActive ? 'zone-caption' : 'zone-caption text-down';
+  }
+}
+

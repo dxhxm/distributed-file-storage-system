@@ -13,16 +13,19 @@ import {
   renderFilePanel,
   updateClusterStatusDOM,
   updateHeartbeatRailDOM,
+  updateNodeListDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 
 let currentViewState: ViewState = 'normal';
 
 function attachInteractiveHoverLinks(): void {
-  const nodeRows = document.querySelectorAll<HTMLElement>('.node-row');
-  const lanes = document.querySelectorAll<HTMLElement>('.heartbeat-lane');
+  const appMain = document.getElementById('app-main');
+  if (!appMain || appMain.dataset.hoverBound) return;
+  appMain.dataset.hoverBound = 'true';
 
   function highlightLane(nodeId: string, active: boolean): void {
+    const lanes = document.querySelectorAll<HTMLElement>('.heartbeat-lane');
     lanes.forEach(lane => {
       if (lane.dataset.node === nodeId) {
         if (active) {
@@ -37,7 +40,8 @@ function attachInteractiveHoverLinks(): void {
   }
 
   function highlightRow(nodeId: string, active: boolean): void {
-    nodeRows.forEach(row => {
+    const rows = document.querySelectorAll<HTMLElement>('.node-row');
+    rows.forEach(row => {
       if (row.dataset.node === nodeId) {
         if (active) {
           row.style.backgroundColor = 'var(--color-surface-hover)';
@@ -48,24 +52,46 @@ function attachInteractiveHoverLinks(): void {
     });
   }
 
-  nodeRows.forEach(row => {
-    const nodeId = row.dataset.node;
-    if (!nodeId) return;
-
-    row.addEventListener('mouseenter', () => highlightLane(nodeId, true));
-    row.addEventListener('mouseleave', () => highlightLane(nodeId, false));
-    row.addEventListener('focus', () => highlightLane(nodeId, true));
-    row.addEventListener('blur', () => highlightLane(nodeId, false));
+  appMain.addEventListener('mouseover', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) {
+      highlightLane(row.dataset.node, true);
+      return;
+    }
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) {
+      highlightRow(lane.dataset.node, true);
+    }
   });
 
-  lanes.forEach(lane => {
-    const nodeId = lane.dataset.node;
-    if (!nodeId) return;
+  appMain.addEventListener('mouseout', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) {
+      highlightLane(row.dataset.node, false);
+      return;
+    }
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) {
+      highlightRow(lane.dataset.node, false);
+    }
+  });
 
-    lane.addEventListener('mouseenter', () => highlightRow(nodeId, true));
-    lane.addEventListener('mouseleave', () => highlightRow(nodeId, false));
-    lane.addEventListener('focus', () => highlightRow(nodeId, true));
-    lane.addEventListener('blur', () => highlightRow(nodeId, false));
+  appMain.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) highlightLane(row.dataset.node, true);
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) highlightRow(lane.dataset.node, true);
+  });
+
+  appMain.addEventListener('focusout', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) highlightLane(row.dataset.node, false);
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) highlightRow(lane.dataset.node, false);
   });
 }
 
@@ -131,7 +157,7 @@ function renderDashboard(): void {
     <!-- LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES) -->
     <div class="lower-zones-grid">
       <div id="node-list-root">
-        ${renderNodeList([], currentViewState)}
+        ${renderNodeList(currentHeartbeats.nodes, currentViewState)}
       </div>
       <div id="file-panel-root">
         ${renderFilePanel([], currentViewState)}
@@ -177,10 +203,11 @@ function init(): void {
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
   });
 
-  // Subscribe to heartbeat rail polling for live per-node pulse tracks
+  // Subscribe to heartbeat rail & node telemetry for Zone 1 & Zone 2 live synchronization
   heartbeatService.subscribe((result) => {
     if (currentViewState !== 'normal') return;
     updateHeartbeatRailDOM(result.nodes);
+    updateNodeListDOM(result.nodes);
   });
 
   // Start routing, health checking, cluster status polling, and heartbeat pulse engine (~500ms cadence)
@@ -203,5 +230,6 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
 
 

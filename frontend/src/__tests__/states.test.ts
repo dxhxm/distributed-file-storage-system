@@ -159,7 +159,34 @@ assert(nlError.includes('Topology Query Failed'), 'Node list error state has cle
 assert(nlErrorDirect === nlError, 'renderNodeListError equals error viewState');
 assert(nlError.includes('Retry Fetch'), 'Node list error state has Retry Fetch action');
 
-console.log('  ✓ PASS: Zone 2 (Node List) loading, empty, and error states verified.');
+// Live Node List Rendering & Stable Ordering
+const testNodes = [
+  { id: 'Node C', displayName: 'Node C', state: 'CANDIDATE' as const, status: 'ONLINE' as const, last_heartbeat: 1724608300, latencyMs: 12.1, port: ':8002' },
+  { id: 'Node A', displayName: 'Node A', state: 'LEADER' as const, status: 'ONLINE' as const, last_heartbeat: 1724608300, latencyMs: 0, port: ':8000' },
+  { id: 'Node B', displayName: 'Node B', state: 'FOLLOWER' as const, status: 'OFFLINE' as const, last_heartbeat: 1724608300, latencyMs: 0, port: ':8001' },
+];
+
+const nlLive = renderNodeList(testNodes, 'normal');
+assert(nlLive.includes('(2 ONLINE)'), 'Live node list displays correct online count (2 ONLINE)');
+assert(nlLive.includes('Quorum majority active'), 'Displays quorum majority active caption');
+
+// Verify stable sorting (Node A appears before Node B, Node B appears before Node C despite input order)
+const posNodeA = nlLive.indexOf('node-row-nodeA');
+const posNodeB = nlLive.indexOf('node-row-nodeB');
+const posNodeC = nlLive.indexOf('node-row-nodeC');
+assert(posNodeA !== -1 && posNodeB !== -1 && posNodeC !== -1, 'All 3 node rows exist in table');
+assert(posNodeA < posNodeB, 'Node A is ordered before Node B (stable sorting)');
+assert(posNodeB < posNodeC, 'Node B is ordered before Node C (stable sorting)');
+
+// Verify row visual treatments
+assert(nlLive.includes('badge-ok'), 'Leader has badge-ok');
+assert(nlLive.includes('badge-warn'), 'Candidate has badge-warn');
+assert(nlLive.includes('badge-info'), 'Follower has badge-info');
+assert(nlLive.includes('text-ok'), 'Online status uses text-ok');
+assert(nlLive.includes('text-down'), 'Offline status uses text-down');
+
+console.log('  ✓ PASS: Zone 2 (Node List) loading, empty, error, and live stable states verified.');
+
 
 // 4. Zone 3: File Panel States
 console.log('Testing Zone 3 (File Panel) States...');
