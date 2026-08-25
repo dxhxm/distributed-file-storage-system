@@ -14,6 +14,7 @@ import type {
   NodeDetailResponse,
   FilesResponse,
   ClientConfig,
+  RequestOptions,
 } from '../types/api.ts';
 
 class ApiService {
@@ -45,24 +46,24 @@ class ApiService {
     return this.currentBaseUrl;
   }
 
-  public async getHealth(): Promise<HealthResponse> {
-    return this.client.getHealth();
+  public async getHealth(options?: RequestOptions): Promise<HealthResponse> {
+    return this.client.getHealth(options);
   }
 
-  public async getClusterStatus(): Promise<ClusterStatusResponse> {
-    return this.client.getClusterStatus();
+  public async getClusterStatus(options?: RequestOptions): Promise<ClusterStatusResponse> {
+    return this.client.getClusterStatus(options);
   }
 
-  public async getNodes(): Promise<NodesResponse> {
-    return this.client.getNodes();
+  public async getNodes(options?: RequestOptions): Promise<NodesResponse> {
+    return this.client.getNodes(options);
   }
 
-  public async getNodeById(nodeId: string): Promise<NodeDetailResponse> {
-    return this.client.getNodeById(nodeId);
+  public async getNodeById(nodeId: string, options?: RequestOptions): Promise<NodeDetailResponse> {
+    return this.client.getNodeById(nodeId, options);
   }
 
-  public async getFiles(): Promise<FilesResponse> {
-    return this.client.getFiles();
+  public async getFiles(options?: RequestOptions): Promise<FilesResponse> {
+    return this.client.getFiles(options);
   }
 
   public getRawClient(): DistributedStorageClient {

@@ -7,6 +7,11 @@ import {
   renderClusterStatusSkeleton,
   renderClusterStatusEmpty,
   renderClusterStatusError,
+  renderClusterHealthIndicator,
+  renderClusterHealthSkeleton,
+  renderClusterHealthEmpty,
+  renderClusterHealthError,
+  resolveHealthIndicatorStyle,
   renderHeartbeatRail,
   renderHeartbeatRailSkeleton,
   renderHeartbeatRailEmpty,
@@ -24,6 +29,12 @@ import {
 function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(`Assertion failed: ${message}`);
+  }
+}
+
+function assertStrictEqual<T>(actual: T, expected: T, message: string): void {
+  if (actual !== expected) {
+    throw new Error(`Expected ${String(expected)}, but got ${String(actual)}. ${message}`);
   }
 }
 
@@ -73,7 +84,58 @@ assert(hrError.includes('Reconnect Rail'), 'Heartbeat rail error provides action
 
 console.log('  ✓ PASS: Zone 1 (Cluster Status & Rail) loading, empty, and error states verified.');
 
-// 2. Zone 2: Node List States
+// 2. ClusterHealthIndicator & Three Consensus States
+console.log('Testing ClusterHealthIndicator (Restrained Low-Saturation States & Leader Display)...');
+
+// HEALTHY State
+const healthyStyle = resolveHealthIndicatorStyle('HEALTHY', 'Node A');
+assertStrictEqual(healthyStyle.badgeClass, 'badge-ok', 'HEALTHY maps to badge-ok token');
+assertStrictEqual(healthyStyle.dotClass, 'dot-ok', 'HEALTHY maps to dot-ok token');
+assertStrictEqual(healthyStyle.leaderClass, 'text-ok', 'Active leader styled with text-ok');
+assertStrictEqual(healthyStyle.displayLeader, 'Node A', 'Leader ID displayed as Node A');
+
+const healthyMarkup = renderClusterHealthIndicator('HEALTHY', 'Node A');
+assert(healthyMarkup.includes('badge-ok'), 'HEALTHY markup contains badge-ok');
+assert(healthyMarkup.includes('dot-ok'), 'HEALTHY markup contains dot-ok');
+assert(healthyMarkup.includes('Node A'), 'HEALTHY markup contains leader Node A');
+assert(healthyMarkup.includes('role="status"'), 'HEALTHY indicator includes role="status"');
+assert(healthyMarkup.includes('aria-live="polite"'), 'HEALTHY indicator includes aria-live="polite"');
+
+// OPERATIONAL State (Quorum Degraded)
+const operationalStyle = resolveHealthIndicatorStyle('OPERATIONAL', 'Node A');
+assertStrictEqual(operationalStyle.badgeClass, 'badge-warn', 'OPERATIONAL maps to badge-warn token');
+assertStrictEqual(operationalStyle.dotClass, 'dot-warn', 'OPERATIONAL maps to dot-warn token');
+assertStrictEqual(operationalStyle.displayLeader, 'Node A', 'Leader displayed in OPERATIONAL state');
+
+const operationalMarkup = renderClusterHealthIndicator('OPERATIONAL', 'Node A');
+assert(operationalMarkup.includes('badge-warn'), 'OPERATIONAL markup contains badge-warn');
+assert(operationalMarkup.includes('dot-warn'), 'OPERATIONAL markup contains dot-warn');
+assert(operationalMarkup.includes('OPERATIONAL'), 'OPERATIONAL text label present');
+
+// NO MAJORITY State (Quorum Lost)
+const noMajorityStyle = resolveHealthIndicatorStyle('NO MAJORITY', null);
+assertStrictEqual(noMajorityStyle.badgeClass, 'badge-down', 'NO MAJORITY maps to badge-down token');
+assertStrictEqual(noMajorityStyle.dotClass, 'dot-down', 'NO MAJORITY maps to dot-down token');
+assertStrictEqual(noMajorityStyle.leaderClass, 'text-muted', 'Leader styled with text-muted when NONE');
+assertStrictEqual(noMajorityStyle.displayLeader, 'NONE', 'Leader displayed as NONE when null in NO MAJORITY');
+
+const noMajorityMarkup = renderClusterHealthIndicator('NO MAJORITY', null);
+assert(noMajorityMarkup.includes('badge-down'), 'NO MAJORITY markup contains badge-down');
+assert(noMajorityMarkup.includes('dot-down'), 'NO MAJORITY markup contains dot-down');
+assert(noMajorityMarkup.includes('NO MAJORITY'), 'NO MAJORITY text label present');
+assert(noMajorityMarkup.includes('NONE'), 'Leader displayed as NONE in NO MAJORITY markup');
+
+// Direct Helper functions
+const chSkeleton = renderClusterHealthSkeleton();
+assert(chSkeleton.includes('skeleton-bar'), 'Cluster health skeleton uses skeleton-bar');
+const chEmpty = renderClusterHealthEmpty();
+assert(chEmpty.includes('BOOTSTRAPPING'), 'Cluster health empty uses BOOTSTRAPPING');
+const chError = renderClusterHealthError();
+assert(chError.includes('DISCONNECTED'), 'Cluster health error uses DISCONNECTED');
+
+console.log('  ✓ PASS: ClusterHealthIndicator renders all 3 consensus states, restrained palette, and adjacent leader.');
+
+// 3. Zone 2: Node List States
 console.log('Testing Zone 2 (Node List) States...');
 
 // Loading Skeleton
@@ -97,9 +159,36 @@ assert(nlError.includes('Topology Query Failed'), 'Node list error state has cle
 assert(nlErrorDirect === nlError, 'renderNodeListError equals error viewState');
 assert(nlError.includes('Retry Fetch'), 'Node list error state has Retry Fetch action');
 
-console.log('  ✓ PASS: Zone 2 (Node List) loading, empty, and error states verified.');
+// Live Node List Rendering & Stable Ordering
+const testNodes = [
+  { id: 'Node C', displayName: 'Node C', state: 'CANDIDATE' as const, status: 'ONLINE' as const, last_heartbeat: 1724608300, latencyMs: 12.1, port: ':8002' },
+  { id: 'Node A', displayName: 'Node A', state: 'LEADER' as const, status: 'ONLINE' as const, last_heartbeat: 1724608300, latencyMs: 0, port: ':8000' },
+  { id: 'Node B', displayName: 'Node B', state: 'FOLLOWER' as const, status: 'OFFLINE' as const, last_heartbeat: 1724608300, latencyMs: 0, port: ':8001' },
+];
 
-// 3. Zone 3: File Panel States
+const nlLive = renderNodeList(testNodes, 'normal');
+assert(nlLive.includes('(2 ONLINE)'), 'Live node list displays correct online count (2 ONLINE)');
+assert(nlLive.includes('Quorum majority active'), 'Displays quorum majority active caption');
+
+// Verify stable sorting (Node A appears before Node B, Node B appears before Node C despite input order)
+const posNodeA = nlLive.indexOf('node-row-nodeA');
+const posNodeB = nlLive.indexOf('node-row-nodeB');
+const posNodeC = nlLive.indexOf('node-row-nodeC');
+assert(posNodeA !== -1 && posNodeB !== -1 && posNodeC !== -1, 'All 3 node rows exist in table');
+assert(posNodeA < posNodeB, 'Node A is ordered before Node B (stable sorting)');
+assert(posNodeB < posNodeC, 'Node B is ordered before Node C (stable sorting)');
+
+// Verify row visual treatments
+assert(nlLive.includes('badge-ok'), 'Leader has badge-ok');
+assert(nlLive.includes('badge-warn'), 'Candidate has badge-warn');
+assert(nlLive.includes('badge-info'), 'Follower has badge-info');
+assert(nlLive.includes('text-ok'), 'Online status uses text-ok');
+assert(nlLive.includes('text-down'), 'Offline status uses text-down');
+
+console.log('  ✓ PASS: Zone 2 (Node List) loading, empty, error, and live stable states verified.');
+
+
+// 4. Zone 3: File Panel States
 console.log('Testing Zone 3 (File Panel) States...');
 
 // Loading Skeleton
@@ -125,13 +214,14 @@ assert(fpError.includes('Retry Ledger Query'), 'File panel error state has retry
 
 console.log('  ✓ PASS: Zone 3 (File Panel) loading, empty, and error states verified.');
 
-// 4. Anti-AI-Dashboard & Restrained Motion Validation Check
+// 5. Anti-AI-Dashboard & Restrained Motion Validation Check
 console.log('Testing Anti-AI Dashboard Cliché Check across all states...');
 const allOutputs = [
   csSkeleton, csEmpty, csError,
   hrSkeleton, hrEmpty, hrError,
   nlSkeleton, nlEmpty, nlError,
   fpSkeleton, fpEmpty, fpError,
+  healthyMarkup, operationalMarkup, noMajorityMarkup,
 ].join(' ');
 
 assert(!allOutputs.includes('Oops!'), 'No vague "Oops!" copy');
@@ -140,4 +230,5 @@ assert(!allOutputs.includes('fa-spinner'), 'No FontAwesome spinner icons');
 assert(!allOutputs.includes('animate-spin'), 'No spinning animation clichés');
 console.log('  ✓ PASS: All visual states pass the Anti-AI Dashboard and restrained motion check.');
 
-console.log('\n=== All State Shell Tests Passed Successfully (4/4)! ===\n');
+console.log('\n=== All State Shell Tests Passed Successfully (5/5)! ===\n');
+

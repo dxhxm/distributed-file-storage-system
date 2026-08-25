@@ -234,6 +234,7 @@ tr:hover td {
   border-radius: var(--radius-sm);
   letter-spacing: var(--tracking-wide);
   line-height: var(--leading-tight);
+  transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
 }
 
 .badge-ok {
@@ -267,9 +268,11 @@ tr:hover td {
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
+  transition: background-color var(--transition-normal);
 }
 
 .status-dot.dot-ok { background-color: var(--color-ok); }
 .status-dot.dot-warn { background-color: var(--color-warn); }
 .status-dot.dot-down { background-color: var(--color-down); }
 .status-dot.dot-muted { background-color: var(--color-muted); }
+

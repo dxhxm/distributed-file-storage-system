@@ -6,6 +6,13 @@
 import type { ClusterStatusResponse } from '../types/api.ts';
 import type { ConnectivityStatus } from '../services/healthService.ts';
 import type { ViewState } from '../types/components.ts';
+import {
+  renderClusterHealthIndicator,
+  renderClusterHealthSkeleton,
+  renderClusterHealthEmpty,
+  renderClusterHealthError,
+  updateClusterHealthIndicatorDOM,
+} from './ClusterHealthIndicator.ts';
 
 export function renderClusterStatusSkeleton(): string {
   return `
@@ -16,15 +23,7 @@ export function renderClusterStatusSkeleton(): string {
       </div>
 
       <div class="cluster-telemetry-strip">
-        <div class="telemetry-item">
-          <span class="telemetry-label">Status</span>
-          <span class="skeleton-bar" style="width: 80px;"></span>
-        </div>
-        <div class="telemetry-divider" aria-hidden="true"></div>
-        <div class="telemetry-item">
-          <span class="telemetry-label">Leader</span>
-          <span class="skeleton-bar" style="width: 50px;"></span>
-        </div>
+        ${renderClusterHealthSkeleton()}
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item">
           <span class="telemetry-label">Term</span>
@@ -63,17 +62,7 @@ export function renderClusterStatusEmpty(): string {
       </div>
 
       <div class="cluster-telemetry-strip">
-        <div class="telemetry-item">
-          <span class="telemetry-label">Status</span>
-          <span class="badge badge-warn">
-            <span class="status-dot dot-warn"></span> BOOTSTRAPPING
-          </span>
-        </div>
-        <div class="telemetry-divider" aria-hidden="true"></div>
-        <div class="telemetry-item">
-          <span class="telemetry-label">Leader</span>
-          <span class="telemetry-value text-muted">NONE</span>
-        </div>
+        ${renderClusterHealthEmpty()}
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item">
           <span class="telemetry-label">Term</span>
@@ -113,17 +102,7 @@ export function renderClusterStatusError(errorMsg?: string): string {
       </div>
 
       <div class="cluster-telemetry-strip">
-        <div class="telemetry-item">
-          <span class="telemetry-label">Status</span>
-          <span class="badge badge-down" id="cluster-state-badge">
-            <span class="status-dot dot-down"></span> DISCONNECTED
-          </span>
-        </div>
-        <div class="telemetry-divider" aria-hidden="true"></div>
-        <div class="telemetry-item">
-          <span class="telemetry-label">Leader</span>
-          <span class="telemetry-value text-down">UNAVAILABLE</span>
-        </div>
+        ${renderClusterHealthError()}
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item">
           <span class="telemetry-label">Quorum</span>
@@ -150,15 +129,14 @@ export function renderClusterStatus(
   if (viewState === 'error') return renderClusterStatusError(errorMessage);
 
   const clusterState = status?.cluster_state ?? 'HEALTHY';
-  const leaderId = status?.leader_id ?? 'nodeA';
+  const leaderId = status ? (status.leader_id ?? 'NONE') : 'nodeA';
   const term = status?.term ?? 4;
   const commitIndex = status?.commit_index ?? 1042;
   const activeNodes = status?.active_nodes ?? 3;
   const totalNodes = status?.total_nodes ?? 3;
 
   const isHealthy = clusterState === 'HEALTHY';
-  const badgeClass = isHealthy ? 'badge-ok' : clusterState === 'OPERATIONAL' ? 'badge-warn' : 'badge-down';
-  const dotClass = isHealthy ? 'dot-ok' : clusterState === 'OPERATIONAL' ? 'dot-warn' : 'dot-down';
+  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
 
   const connBadge = connectivity === 'CONNECTED'
     ? `<span class="badge badge-ok" title="Backend reached (+${latencyMs}ms)"><span class="status-dot dot-ok"></span> API LIVE</span>`
@@ -174,19 +152,7 @@ export function renderClusterStatus(
       </div>
 
       <div class="cluster-telemetry-strip">
-        <div class="telemetry-item">
-          <span class="telemetry-label">Status</span>
-          <span class="badge ${badgeClass}" id="cluster-state-badge">
-            <span class="status-dot ${dotClass}"></span> ${clusterState}
-          </span>
-        </div>
-
-        <div class="telemetry-divider" aria-hidden="true"></div>
-
-        <div class="telemetry-item">
-          <span class="telemetry-label">Leader</span>
-          <span class="telemetry-value text-ok" id="cluster-leader-val">${leaderId}</span>
-        </div>
+        ${renderClusterHealthIndicator(clusterState, leaderId, viewState)}
 
         <div class="telemetry-divider" aria-hidden="true"></div>
 
@@ -206,7 +172,7 @@ export function renderClusterStatus(
 
         <div class="telemetry-item">
           <span class="telemetry-label">Quorum</span>
-          <span class="telemetry-value text-ok" id="cluster-quorum-val">${activeNodes}/${totalNodes}</span>
+          <span class="telemetry-value ${quorumClass}" id="cluster-quorum-val">${activeNodes}/${totalNodes}</span>
         </div>
 
         <div class="telemetry-divider" aria-hidden="true"></div>
@@ -225,3 +191,57 @@ export function renderClusterStatus(
     </div>
   `;
 }
+
+/**
+ * High-performance in-place DOM updater for Zone 1 cluster telemetry.
+ * Avoids DOM re-creation and flickering during high-frequency polling.
+ */
+export function updateClusterStatusDOM(
+  status: ClusterStatusResponse | null,
+  connectivity: ConnectivityStatus = 'CONNECTED',
+  latencyMs: number = 0
+): void {
+  const termEl = document.getElementById('cluster-term-val');
+  const commitEl = document.getElementById('cluster-commit-val');
+  const quorumEl = document.getElementById('cluster-quorum-val');
+  const connEl = document.getElementById('backend-connectivity-item');
+
+  if (!termEl || !commitEl || !quorumEl) {
+    // If element structure is missing (e.g. state switch), re-render container
+    const root = document.getElementById('cluster-status-root');
+    if (root) {
+      root.innerHTML = renderClusterStatus(status, connectivity, latencyMs, 'normal');
+    }
+    return;
+  }
+
+  const clusterState = status?.cluster_state ?? 'HEALTHY';
+  const leaderId = status ? (status.leader_id ?? 'NONE') : 'nodeA';
+  const term = status?.term ?? 4;
+  const commitIndex = status?.commit_index ?? 1042;
+  const activeNodes = status?.active_nodes ?? 3;
+  const totalNodes = status?.total_nodes ?? 3;
+
+  // In-place update of the primary health indicator and leader
+  updateClusterHealthIndicatorDOM(clusterState, leaderId);
+
+  const isHealthy = clusterState === 'HEALTHY';
+  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
+
+  termEl.textContent = `#${term}`;
+  commitEl.textContent = `#${commitIndex}`;
+
+  quorumEl.className = `telemetry-value ${quorumClass}`;
+  quorumEl.textContent = `${activeNodes}/${totalNodes}`;
+
+  if (connEl) {
+    const connBadge = connectivity === 'CONNECTED'
+      ? `<span class="badge badge-ok" title="Backend reached (+${latencyMs}ms)"><span class="status-dot dot-ok"></span> API LIVE</span>`
+      : connectivity === 'DEGRADED'
+      ? `<span class="badge badge-warn"><span class="status-dot dot-warn"></span> HIGH LATENCY</span>`
+      : `<span class="badge badge-down"><span class="status-dot dot-down"></span> OFFLINE</span>`;
+    connEl.innerHTML = connBadge;
+  }
+}
+
+

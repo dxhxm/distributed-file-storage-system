@@ -5,22 +5,27 @@
 
 import './styles/index.css';
 import { router } from './router/index.ts';
-import { healthService } from './services/index.ts';
+import { healthService, clusterStatusService, heartbeatService } from './services/index.ts';
 import {
   renderClusterStatus,
   renderHeartbeatRail,
   renderNodeList,
   renderFilePanel,
+  updateClusterStatusDOM,
+  updateHeartbeatRailDOM,
+  updateNodeListDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 
 let currentViewState: ViewState = 'normal';
 
 function attachInteractiveHoverLinks(): void {
-  const nodeRows = document.querySelectorAll<HTMLElement>('.node-row');
-  const lanes = document.querySelectorAll<HTMLElement>('.heartbeat-lane');
+  const appMain = document.getElementById('app-main');
+  if (!appMain || appMain.dataset.hoverBound) return;
+  appMain.dataset.hoverBound = 'true';
 
   function highlightLane(nodeId: string, active: boolean): void {
+    const lanes = document.querySelectorAll<HTMLElement>('.heartbeat-lane');
     lanes.forEach(lane => {
       if (lane.dataset.node === nodeId) {
         if (active) {
@@ -35,7 +40,8 @@ function attachInteractiveHoverLinks(): void {
   }
 
   function highlightRow(nodeId: string, active: boolean): void {
-    nodeRows.forEach(row => {
+    const rows = document.querySelectorAll<HTMLElement>('.node-row');
+    rows.forEach(row => {
       if (row.dataset.node === nodeId) {
         if (active) {
           row.style.backgroundColor = 'var(--color-surface-hover)';
@@ -46,24 +52,46 @@ function attachInteractiveHoverLinks(): void {
     });
   }
 
-  nodeRows.forEach(row => {
-    const nodeId = row.dataset.node;
-    if (!nodeId) return;
-
-    row.addEventListener('mouseenter', () => highlightLane(nodeId, true));
-    row.addEventListener('mouseleave', () => highlightLane(nodeId, false));
-    row.addEventListener('focus', () => highlightLane(nodeId, true));
-    row.addEventListener('blur', () => highlightLane(nodeId, false));
+  appMain.addEventListener('mouseover', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) {
+      highlightLane(row.dataset.node, true);
+      return;
+    }
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) {
+      highlightRow(lane.dataset.node, true);
+    }
   });
 
-  lanes.forEach(lane => {
-    const nodeId = lane.dataset.node;
-    if (!nodeId) return;
+  appMain.addEventListener('mouseout', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) {
+      highlightLane(row.dataset.node, false);
+      return;
+    }
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) {
+      highlightRow(lane.dataset.node, false);
+    }
+  });
 
-    lane.addEventListener('mouseenter', () => highlightRow(nodeId, true));
-    lane.addEventListener('mouseleave', () => highlightRow(nodeId, false));
-    lane.addEventListener('focus', () => highlightRow(nodeId, true));
-    lane.addEventListener('blur', () => highlightRow(nodeId, false));
+  appMain.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) highlightLane(row.dataset.node, true);
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) highlightRow(lane.dataset.node, true);
+  });
+
+  appMain.addEventListener('focusout', (e) => {
+    const target = e.target as HTMLElement | null;
+    const row = target?.closest<HTMLElement>('.node-row');
+    if (row?.dataset.node) highlightLane(row.dataset.node, false);
+    const lane = target?.closest<HTMLElement>('.heartbeat-lane');
+    if (lane?.dataset.node) highlightRow(lane.dataset.node, false);
   });
 }
 
@@ -93,6 +121,8 @@ function renderDashboard(): void {
   if (!appContainer) return;
 
   const currentHealth = healthService.getLastResult();
+  const currentCluster = clusterStatusService.getLastResult();
+  const currentHeartbeats = heartbeatService.getLastResult();
 
   const switcherHtml = `
     <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
@@ -112,17 +142,22 @@ function renderDashboard(): void {
     <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
     <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
       <div id="cluster-status-root">
-        ${renderClusterStatus(null, currentHealth.status, currentHealth.latencyMs, currentViewState)}
+        ${renderClusterStatus(
+          currentCluster.data,
+          currentHealth.status,
+          currentCluster.latencyMs,
+          currentViewState
+        )}
       </div>
       <div id="heartbeat-rail-root">
-        ${renderHeartbeatRail([], currentViewState)}
+        ${renderHeartbeatRail(currentHeartbeats.nodes, currentViewState)}
       </div>
     </section>
 
     <!-- LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES) -->
     <div class="lower-zones-grid">
       <div id="node-list-root">
-        ${renderNodeList([], currentViewState)}
+        ${renderNodeList(currentHeartbeats.nodes, currentViewState)}
       </div>
       <div id="file-panel-root">
         ${renderFilePanel([], currentViewState)}
@@ -160,9 +195,33 @@ function init(): void {
     }
   });
 
-  // Start routing and background health check
+  // Subscribe to cluster status polling for dynamic Zone 1 telemetry
+  clusterStatusService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    const healthResult = healthService.getLastResult();
+    const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
+    updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
+  });
+
+  // Subscribe to heartbeat rail & node telemetry for Zone 1 & Zone 2 live synchronization
+  heartbeatService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    updateHeartbeatRailDOM(result.nodes);
+    updateNodeListDOM(result.nodes);
+  });
+
+  // Start routing, health checking, cluster status polling, and heartbeat pulse engine (~500ms cadence)
   router.start();
   healthService.startPolling(3000);
+  clusterStatusService.startPolling(500);
+  heartbeatService.startPolling(500);
+
+  // Lifecycle listeners to prevent memory leaks
+  window.addEventListener('beforeunload', () => {
+    clusterStatusService.stopPolling();
+    heartbeatService.stopPolling();
+    healthService.stopPolling();
+  });
 }
 
 // Start application on DOM ready
@@ -171,3 +230,6 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+
+
