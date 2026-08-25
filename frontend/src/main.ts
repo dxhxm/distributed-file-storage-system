@@ -5,13 +5,14 @@
 
 import './styles/index.css';
 import { router } from './router/index.ts';
-import { healthService, clusterStatusService } from './services/index.ts';
+import { healthService, clusterStatusService, heartbeatService } from './services/index.ts';
 import {
   renderClusterStatus,
   renderHeartbeatRail,
   renderNodeList,
   renderFilePanel,
   updateClusterStatusDOM,
+  updateHeartbeatRailDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 
@@ -95,6 +96,7 @@ function renderDashboard(): void {
 
   const currentHealth = healthService.getLastResult();
   const currentCluster = clusterStatusService.getLastResult();
+  const currentHeartbeats = heartbeatService.getLastResult();
 
   const switcherHtml = `
     <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
@@ -122,7 +124,7 @@ function renderDashboard(): void {
         )}
       </div>
       <div id="heartbeat-rail-root">
-        ${renderHeartbeatRail([], currentViewState)}
+        ${renderHeartbeatRail(currentHeartbeats.nodes, currentViewState)}
       </div>
     </section>
 
@@ -175,14 +177,22 @@ function init(): void {
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
   });
 
-  // Start routing, health checking, and cluster status polling (~500ms cadence)
+  // Subscribe to heartbeat rail polling for live per-node pulse tracks
+  heartbeatService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    updateHeartbeatRailDOM(result.nodes);
+  });
+
+  // Start routing, health checking, cluster status polling, and heartbeat pulse engine (~500ms cadence)
   router.start();
   healthService.startPolling(3000);
   clusterStatusService.startPolling(500);
+  heartbeatService.startPolling(500);
 
-  // Lifecycle listeners to prevent leaks
+  // Lifecycle listeners to prevent memory leaks
   window.addEventListener('beforeunload', () => {
     clusterStatusService.stopPolling();
+    heartbeatService.stopPolling();
     healthService.stopPolling();
   });
 }
@@ -193,4 +203,5 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
 

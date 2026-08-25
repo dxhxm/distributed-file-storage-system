@@ -179,7 +179,12 @@
   padding: var(--space-1) var(--space-2);
   background-color: var(--color-surface-subtle);
   border: 1px solid var(--color-line-subtle);
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.heartbeat-lane.lane-stalled {
+  opacity: 0.55;
+  border-color: var(--color-down-border);
 }
 
 .heartbeat-lane:hover,
@@ -212,16 +217,24 @@
   width: 4px;
   height: 6px;
   background-color: var(--color-ok);
-  opacity: 0.85;
+  opacity: 0.75;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
+}
+
+.pulse-tick.pulse-active {
+  opacity: 1;
+  transform: scaleY(1.35);
+  background-color: var(--color-ok);
 }
 
 .pulse-tick.tick-warn {
   background-color: var(--color-warn);
+  opacity: 0.85;
 }
 
 .pulse-tick.tick-missed {
   background-color: var(--color-down);
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .lane-meta {
@@ -229,7 +242,9 @@
   font-size: var(--text-2xs);
   text-align: right;
   color: var(--color-muted);
+  transition: color var(--transition-fast);
 }
+
 
 /* ==========================================================================
    3. SECTION HEADER TYPOGRAPHY (ZONES 2 & 3)

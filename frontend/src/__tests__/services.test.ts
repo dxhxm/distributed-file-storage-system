@@ -207,7 +207,81 @@ async function runServicesTests(): Promise<void> {
   assert(clusterStatusService.isRunning() === false, 'Polling stopped on unmount with interval cleared');
   console.log('  ✓ PASS: Memory leak prevention verified (timers cleared on unmount/stop).');
 
-  // 4. Router Path Matching & Navigation
+  // 4. HeartbeatService Per-Node Pulse History & Stalled States
+  console.log('Testing HeartbeatService (Pulse History & Dead Node Stalling)...');
+  const { heartbeatService } = await import('../services/heartbeatService.ts');
+  heartbeatService.reset();
+
+  let hbNotified = false;
+  const unsubscribeHb = heartbeatService.subscribe((res) => {
+    hbNotified = true;
+    assert(res.nodes.length === 3, 'HeartbeatService starts with 3 tracked nodes');
+  });
+  assert(hbNotified, 'HeartbeatService immediately notifies subscriber');
+
+  // Mock live nodes response (All nodes online & pulsing)
+  const nowSec = Date.now() / 1000;
+  const liveNodesPayload = {
+    nodes: [
+      { id: 'Node A', state: 'LEADER', status: 'ONLINE', last_heartbeat: nowSec + 1, url: 'http://127.0.0.1:8000' },
+      { id: 'Node B', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: nowSec + 1, url: 'http://127.0.0.1:8001' },
+      { id: 'Node C', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: nowSec + 1, url: 'http://127.0.0.1:8002' },
+    ],
+  };
+
+  // @ts-expect-error - overriding fetchImpl for live heartbeat check
+  rawClient.fetchImpl = async () => new Response(JSON.stringify(liveNodesPayload), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const hbResult1 = await heartbeatService.pollHeartbeats();
+  assertStrictEqual(hbResult1.reachable, true, 'Heartbeat query reachable');
+  const nodeA1 = hbResult1.nodes.find(n => n.id === 'nodeA');
+  const nodeB1 = hbResult1.nodes.find(n => n.id === 'nodeB');
+  assert(nodeA1 !== undefined, 'Node A tracked');
+  assert(nodeB1 !== undefined, 'Node B tracked');
+  assertStrictEqual(nodeA1?.isPulsing, true, 'Node A pulses on advanced heartbeat timestamp');
+  assertStrictEqual(nodeB1?.status, 'ONLINE', 'Node B initially ONLINE and pulsing');
+  assertStrictEqual(nodeA1?.history.length, 20, 'History maintains 20-tick sliding window');
+  assertStrictEqual(nodeA1?.history[19], 'ok', 'Latest tick is ok for online pulsing node');
+  console.log('  ✓ PASS: HeartbeatService registers active pulse ticks from real backend heartbeat telemetry.');
+
+
+  // Mock killing Node B (Dead node stalling check)
+  const deadNodePayload = {
+    nodes: [
+      { id: 'Node A', state: 'LEADER', status: 'ONLINE', last_heartbeat: nowSec + 2, url: 'http://127.0.0.1:8000' },
+      { id: 'Node B', state: 'FOLLOWER', status: 'OFFLINE', last_heartbeat: nowSec, url: 'http://127.0.0.1:8001' },
+      { id: 'Node C', state: 'FOLLOWER', status: 'ONLINE', last_heartbeat: nowSec + 2, url: 'http://127.0.0.1:8002' },
+    ],
+  };
+
+  // @ts-expect-error - overriding fetchImpl for dead node B
+  rawClient.fetchImpl = async () => new Response(JSON.stringify(deadNodePayload), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const hbResult2 = await heartbeatService.pollHeartbeats();
+  const nodeB2 = hbResult2.nodes.find(n => n.id === 'nodeB');
+  const nodeA2 = hbResult2.nodes.find(n => n.id === 'nodeA');
+  assertStrictEqual(nodeA2?.isPulsing, true, 'Online Node A continues pulsing');
+  assertStrictEqual(nodeB2?.status, 'OFFLINE', 'Node B status is OFFLINE');
+  assertStrictEqual(nodeB2?.isPulsing, false, 'Offline Node B pulse is strictly halted (no fake pulse)');
+  assertStrictEqual(nodeB2?.history[19], 'missed', 'Offline Node B records missed tick in history');
+  assert(nodeB2?.consecutiveMissed !== undefined && nodeB2.consecutiveMissed >= 1, 'Consecutive missed increments');
+  console.log('  ✓ PASS: Dead/offline node rail visibly halts pulsing and records missed ticks.');
+
+  // Test Lifecycle cleanup
+  unsubscribeHb();
+  heartbeatService.startPolling(500);
+  assert(heartbeatService.isRunning() === true, 'Heartbeat polling active');
+  heartbeatService.stopPolling();
+  assert(heartbeatService.isRunning() === false, 'Heartbeat polling stopped on unmount');
+  console.log('  ✓ PASS: HeartbeatService memory leak prevention verified.');
+
+  // 5. Router Path Matching & Navigation
   console.log('Testing Hash Router...');
   let dashboardVisited = false;
   let customRouteVisited = false;
@@ -232,8 +306,9 @@ async function runServicesTests(): Promise<void> {
   assert(notFoundVisited, 'Router triggers fallback handler on unknown route');
   console.log('  ✓ PASS: Router matches declared paths and executes route lifecycles.');
 
-  console.log('\n=== All Services & Routing Tests Passed Successfully (4/4)! ===\n');
+  console.log('\n=== All Services & Routing Tests Passed Successfully (5/5)! ===\n');
 }
 
 runServicesTests();
+
 
