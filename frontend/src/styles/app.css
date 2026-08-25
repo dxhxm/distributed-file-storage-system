@@ -86,6 +86,21 @@
   flex-wrap: wrap;
 }
 
+.health-indicator-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.health-status-badge {
+  min-width: 104px;
+  justify-content: center;
+}
+
+.health-leader-item {
+  min-width: 80px;
+}
+
 .telemetry-item {
   display: flex;
   align-items: baseline;
@@ -104,6 +119,7 @@
   font-family: var(--font-mono);
   font-weight: var(--font-weight-medium);
   color: var(--color-ink);
+  transition: color var(--transition-normal);
 }
 
 .telemetry-divider {
@@ -111,6 +127,7 @@
   height: 12px;
   background-color: var(--color-line);
 }
+
 
 /* Signature Heartbeat Rail */
 .heartbeat-rail-card {
