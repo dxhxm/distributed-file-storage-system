@@ -150,7 +150,7 @@ export function renderClusterStatus(
   if (viewState === 'error') return renderClusterStatusError(errorMessage);
 
   const clusterState = status?.cluster_state ?? 'HEALTHY';
-  const leaderId = status?.leader_id ?? 'nodeA';
+  const leaderId = status ? (status.leader_id ?? 'NONE') : 'nodeA';
   const term = status?.term ?? 4;
   const commitIndex = status?.commit_index ?? 1042;
   const activeNodes = status?.active_nodes ?? 3;
@@ -159,6 +159,8 @@ export function renderClusterStatus(
   const isHealthy = clusterState === 'HEALTHY';
   const badgeClass = isHealthy ? 'badge-ok' : clusterState === 'OPERATIONAL' ? 'badge-warn' : 'badge-down';
   const dotClass = isHealthy ? 'dot-ok' : clusterState === 'OPERATIONAL' ? 'dot-warn' : 'dot-down';
+  const leaderClass = (clusterState === 'NO MAJORITY' || leaderId === 'NONE') ? 'text-muted' : 'text-ok';
+  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
 
   const connBadge = connectivity === 'CONNECTED'
     ? `<span class="badge badge-ok" title="Backend reached (+${latencyMs}ms)"><span class="status-dot dot-ok"></span> API LIVE</span>`
@@ -185,7 +187,7 @@ export function renderClusterStatus(
 
         <div class="telemetry-item">
           <span class="telemetry-label">Leader</span>
-          <span class="telemetry-value text-ok" id="cluster-leader-val">${leaderId}</span>
+          <span class="telemetry-value ${leaderClass}" id="cluster-leader-val">${leaderId}</span>
         </div>
 
         <div class="telemetry-divider" aria-hidden="true"></div>
@@ -206,7 +208,7 @@ export function renderClusterStatus(
 
         <div class="telemetry-item">
           <span class="telemetry-label">Quorum</span>
-          <span class="telemetry-value text-ok" id="cluster-quorum-val">${activeNodes}/${totalNodes}</span>
+          <span class="telemetry-value ${quorumClass}" id="cluster-quorum-val">${activeNodes}/${totalNodes}</span>
         </div>
 
         <div class="telemetry-divider" aria-hidden="true"></div>
@@ -225,3 +227,64 @@ export function renderClusterStatus(
     </div>
   `;
 }
+
+/**
+ * High-performance in-place DOM updater for Zone 1 cluster telemetry.
+ * Avoids DOM re-creation and flickering during high-frequency polling.
+ */
+export function updateClusterStatusDOM(
+  status: ClusterStatusResponse | null,
+  connectivity: ConnectivityStatus = 'CONNECTED',
+  latencyMs: number = 0
+): void {
+  const badgeEl = document.getElementById('cluster-state-badge');
+  const leaderEl = document.getElementById('cluster-leader-val');
+  const termEl = document.getElementById('cluster-term-val');
+  const commitEl = document.getElementById('cluster-commit-val');
+  const quorumEl = document.getElementById('cluster-quorum-val');
+  const connEl = document.getElementById('backend-connectivity-item');
+
+  if (!badgeEl || !leaderEl || !termEl || !commitEl || !quorumEl) {
+    // If element structure is missing (e.g. state switch), re-render container
+    const root = document.getElementById('cluster-status-root');
+    if (root) {
+      root.innerHTML = renderClusterStatus(status, connectivity, latencyMs, 'normal');
+    }
+    return;
+  }
+
+  const clusterState = status?.cluster_state ?? 'HEALTHY';
+  const leaderId = status ? (status.leader_id ?? 'NONE') : 'nodeA';
+  const term = status?.term ?? 4;
+  const commitIndex = status?.commit_index ?? 1042;
+  const activeNodes = status?.active_nodes ?? 3;
+  const totalNodes = status?.total_nodes ?? 3;
+
+  const isHealthy = clusterState === 'HEALTHY';
+  const badgeClass = isHealthy ? 'badge-ok' : clusterState === 'OPERATIONAL' ? 'badge-warn' : 'badge-down';
+  const dotClass = isHealthy ? 'dot-ok' : clusterState === 'OPERATIONAL' ? 'dot-warn' : 'dot-down';
+  const leaderClass = (clusterState === 'NO MAJORITY' || leaderId === 'NONE') ? 'text-muted' : 'text-ok';
+  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
+
+  badgeEl.className = `badge ${badgeClass}`;
+  badgeEl.innerHTML = `<span class="status-dot ${dotClass}"></span> ${clusterState}`;
+
+  leaderEl.className = `telemetry-value ${leaderClass}`;
+  leaderEl.textContent = leaderId;
+
+  termEl.textContent = `#${term}`;
+  commitEl.textContent = `#${commitIndex}`;
+
+  quorumEl.className = `telemetry-value ${quorumClass}`;
+  quorumEl.textContent = `${activeNodes}/${totalNodes}`;
+
+  if (connEl) {
+    const connBadge = connectivity === 'CONNECTED'
+      ? `<span class="badge badge-ok" title="Backend reached (+${latencyMs}ms)"><span class="status-dot dot-ok"></span> API LIVE</span>`
+      : connectivity === 'DEGRADED'
+      ? `<span class="badge badge-warn"><span class="status-dot dot-warn"></span> HIGH LATENCY</span>`
+      : `<span class="badge badge-down"><span class="status-dot dot-down"></span> OFFLINE</span>`;
+    connEl.innerHTML = connBadge;
+  }
+}
+

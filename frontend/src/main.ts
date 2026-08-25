@@ -5,12 +5,13 @@
 
 import './styles/index.css';
 import { router } from './router/index.ts';
-import { healthService } from './services/index.ts';
+import { healthService, clusterStatusService } from './services/index.ts';
 import {
   renderClusterStatus,
   renderHeartbeatRail,
   renderNodeList,
   renderFilePanel,
+  updateClusterStatusDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 
@@ -93,6 +94,7 @@ function renderDashboard(): void {
   if (!appContainer) return;
 
   const currentHealth = healthService.getLastResult();
+  const currentCluster = clusterStatusService.getLastResult();
 
   const switcherHtml = `
     <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
@@ -112,7 +114,12 @@ function renderDashboard(): void {
     <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
     <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
       <div id="cluster-status-root">
-        ${renderClusterStatus(null, currentHealth.status, currentHealth.latencyMs, currentViewState)}
+        ${renderClusterStatus(
+          currentCluster.data,
+          currentHealth.status,
+          currentCluster.latencyMs,
+          currentViewState
+        )}
       </div>
       <div id="heartbeat-rail-root">
         ${renderHeartbeatRail([], currentViewState)}
@@ -160,9 +167,24 @@ function init(): void {
     }
   });
 
-  // Start routing and background health check
+  // Subscribe to cluster status polling for dynamic Zone 1 telemetry
+  clusterStatusService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    const healthResult = healthService.getLastResult();
+    const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
+    updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
+  });
+
+  // Start routing, health checking, and cluster status polling (~500ms cadence)
   router.start();
   healthService.startPolling(3000);
+  clusterStatusService.startPolling(500);
+
+  // Lifecycle listeners to prevent leaks
+  window.addEventListener('beforeunload', () => {
+    clusterStatusService.stopPolling();
+    healthService.stopPolling();
+  });
 }
 
 // Start application on DOM ready
@@ -171,3 +193,4 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
