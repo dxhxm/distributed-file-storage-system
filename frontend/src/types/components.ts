@@ -6,6 +6,7 @@
 import type {
   ClusterStatusResponse,
   NodeInfo,
+  NodeDetailResponse,
   FileInfo,
 } from './api.ts';
 
@@ -44,4 +45,15 @@ export interface FilePanelProps {
   isLoading?: boolean;
   onUpload?: (file: File) => void;
   onSync?: () => void;
+}
+
+export interface NodeDetailProps {
+  nodeId: string | null;
+  nodeDetail: NodeDetailResponse | null;
+  latencyMs?: number;
+  isOpen: boolean;
+  state?: ViewState;
+  errorMessage?: string;
+  onClose?: () => void;
+  onRefresh?: () => void;
 }

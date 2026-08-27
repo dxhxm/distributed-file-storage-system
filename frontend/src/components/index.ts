@@ -3,4 +3,5 @@ export * from './ClusterHealthIndicator.ts';
 export * from './HeartbeatRail.ts';
 export * from './NodeList.ts';
 export * from './FilePanel.ts';
+export * from './NodeDetailPanel.ts';
 
