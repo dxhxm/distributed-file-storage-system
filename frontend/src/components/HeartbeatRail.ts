@@ -91,7 +91,10 @@ function renderTicksHtml(history: Array<'ok' | 'warn' | 'missed'> = [], isPulsin
   }).join('');
 }
 
-export function renderHeartbeatLane(node: NodeHeartbeatState | NodeInfo): string {
+export function renderHeartbeatLane(
+  node: NodeHeartbeatState | NodeInfo,
+  selectedNodeId?: string | null
+): string {
   const isLeader = node.state === 'LEADER';
   const isOnline = node.status === 'ONLINE';
   const isCandidate = node.state === 'CANDIDATE';
@@ -104,15 +107,27 @@ export function renderHeartbeatLane(node: NodeHeartbeatState | NodeInfo): string
   const offset = isOnline ? (isLeader ? '+0.0 ms' : node.id.includes('B') || node.id.includes('b') ? '+8.4 ms' : '+12.1 ms') : 'OFFLINE';
   const dotClass = isOnline ? (isLeader ? 'dot-ok' : 'dot-ok') : 'dot-down';
   const stalledClass = isOnline ? '' : 'lane-stalled';
+  const displayName = 'displayName' in node ? node.displayName : node.id;
+  const dataKey = node.id.replace(/\s+/g, '').replace(/^node/i, 'node');
+  const isSelected = selectedNodeId
+    ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === displayName)
+    : false;
 
   return `
-    <div class="heartbeat-lane ${stalledClass}" id="lane-${node.id}" data-node="${node.id}" tabindex="0">
+    <div
+      class="heartbeat-lane ${stalledClass} ${isSelected ? 'heartbeat-lane-selected' : ''}"
+      id="lane-${node.id}"
+      data-node="${node.id}"
+      tabindex="0"
+      role="button"
+      aria-pressed="${isSelected ? 'true' : 'false'}"
+    >
       <div class="lane-node-id">
         <span class="status-dot ${dotClass}"></span>
-        <span class="text-ink">${'displayName' in node ? node.displayName : node.id}</span>
+        <span class="text-ink">${displayName}</span>
         <span class="badge ${badgeClass}" style="font-size: 9px; padding: 0 3px;">${badgeText}</span>
       </div>
-      <div class="lane-track" title="Recent Heartbeats for ${'displayName' in node ? node.displayName : node.id}">
+      <div class="lane-track" title="Recent Heartbeats for ${displayName}">
         ${renderTicksHtml(history, isPulsing)}
       </div>
       <div class="lane-meta ${isLeader ? 'text-ok' : isOnline ? '' : 'text-down'}">
@@ -125,7 +140,8 @@ export function renderHeartbeatLane(node: NodeHeartbeatState | NodeInfo): string
 export function renderHeartbeatRail(
   nodes: Array<NodeHeartbeatState | NodeInfo> = [],
   viewState: ViewState = 'normal',
-  errorMessage?: string
+  errorMessage?: string,
+  selectedNodeId?: string | null
 ): string {
   if (viewState === 'loading') return renderHeartbeatRailSkeleton();
   if (viewState === 'empty') return renderHeartbeatRailEmpty();
@@ -137,7 +153,7 @@ export function renderHeartbeatRail(
     { id: 'nodeC', displayName: 'nodeC', state: 'FOLLOWER' as const, status: 'ONLINE' as const, lastHeartbeat: Date.now() / 1000, latencyMs: 12.1, port: ':8002', isPulsing: false, history: Array(20).fill('ok' as const), consecutiveMissed: 0 },
   ];
 
-  const lanesHtml = defaultNodes.map(node => renderHeartbeatLane(node)).join('');
+  const lanesHtml = defaultNodes.map(node => renderHeartbeatLane(node, selectedNodeId)).join('');
 
   return `
     <div class="heartbeat-rail-card" id="heartbeat-rail">
@@ -164,7 +180,10 @@ export function renderHeartbeatRail(
  * High-performance in-place DOM updater for heartbeat pulse lanes.
  * Updates track ticks, status dots, and metadata without full card re-render.
  */
-export function updateHeartbeatRailDOM(nodeStates: NodeHeartbeatState[]): void {
+export function updateHeartbeatRailDOM(
+  nodeStates: NodeHeartbeatState[],
+  selectedNodeId?: string | null
+): void {
   const container = document.getElementById('heartbeat-lanes-container');
   if (!container) return;
 
@@ -177,7 +196,7 @@ export function updateHeartbeatRailDOM(nodeStates: NodeHeartbeatState[]): void {
 
     if (!laneEl) {
       // Re-render container if lane elements are completely missing
-      container.innerHTML = nodeStates.map(n => renderHeartbeatLane(n)).join('');
+      container.innerHTML = nodeStates.map(n => renderHeartbeatLane(n, selectedNodeId)).join('');
       return;
     }
 
@@ -187,12 +206,25 @@ export function updateHeartbeatRailDOM(nodeStates: NodeHeartbeatState[]): void {
     const badgeText = isLeader ? 'LEAD' : isCandidate ? 'CAND' : 'FOLL';
     const badgeClass = isLeader ? 'badge-ok' : isCandidate ? 'badge-warn' : 'badge-info';
     const dotClass = isOnline ? (isLeader ? 'dot-ok' : 'dot-ok') : 'dot-down';
+    const dataKey = node.id.replace(/\s+/g, '').replace(/^node/i, 'node');
+    const isSelected = selectedNodeId
+      ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === node.displayName)
+      : false;
 
     // Stalled state class
     if (isOnline) {
       laneEl.classList.remove('lane-stalled');
     } else {
       laneEl.classList.add('lane-stalled');
+    }
+
+    // Selected state class & ARIA
+    if (isSelected) {
+      laneEl.classList.add('heartbeat-lane-selected');
+      laneEl.setAttribute('aria-pressed', 'true');
+    } else {
+      laneEl.classList.remove('heartbeat-lane-selected');
+      laneEl.setAttribute('aria-pressed', 'false');
     }
 
     // Update status dot & badge

@@ -22,7 +22,7 @@ function sortNodesStable<T extends NodeInfo | NodeHeartbeatState>(nodes: T[]): T
   });
 }
 
-export function renderNodeRow(node: NodeInfo | NodeHeartbeatState): string {
+export function renderNodeRow(node: NodeInfo | NodeHeartbeatState, selectedNodeId?: string | null): string {
   const isLeader = node.state === 'LEADER';
   const isCandidate = node.state === 'CANDIDATE';
   const isOnline = node.status === 'ONLINE';
@@ -36,9 +36,19 @@ export function renderNodeRow(node: NodeInfo | NodeHeartbeatState): string {
   const timestamp = formatTimeUTC(rawTimestamp);
   const displayName = 'displayName' in node ? node.displayName : node.id;
   const dataKey = node.id.replace(/\s+/g, '').replace(/^node/i, 'node');
+  const isSelected = selectedNodeId
+    ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === displayName)
+    : false;
 
   return `
-    <tr class="node-row" id="node-row-${dataKey}" data-node="${dataKey}" tabindex="0">
+    <tr
+      class="node-row ${isSelected ? 'node-row-selected' : ''}"
+      id="node-row-${dataKey}"
+      data-node="${dataKey}"
+      tabindex="0"
+      role="row"
+      aria-selected="${isSelected ? 'true' : 'false'}"
+    >
       <td class="font-mono text-ink">${displayName}</td>
       <td>
         <span class="badge ${badgeClass}">
@@ -166,7 +176,8 @@ export function renderNodeListError(errorMsg?: string): string {
 export function renderNodeList(
   nodes: Array<NodeInfo | NodeHeartbeatState> = [],
   viewState: ViewState = 'normal',
-  errorMessage?: string
+  errorMessage?: string,
+  selectedNodeId?: string | null
 ): string {
   if (viewState === 'loading') return renderNodeListSkeleton();
   if (viewState === 'empty') return renderNodeListEmpty();
@@ -181,7 +192,7 @@ export function renderNodeList(
   const sortedNodes = sortNodesStable(defaultNodes);
   const onlineCount = sortedNodes.filter(n => n.status === 'ONLINE').length;
   const quorumActive = onlineCount >= 2;
-  const rowsHtml = sortedNodes.map(node => renderNodeRow(node)).join('');
+  const rowsHtml = sortedNodes.map(node => renderNodeRow(node, selectedNodeId)).join('');
 
   return `
     <section class="zone-node-list" id="zone-node-list" aria-label="Cluster Node Inventory">
@@ -218,7 +229,10 @@ export function renderNodeList(
  * High-performance in-place DOM updater for Zone 2 Node List.
  * Updates rows and header metrics without table re-creation.
  */
-export function updateNodeListDOM(nodes: Array<NodeInfo | NodeHeartbeatState>): void {
+export function updateNodeListDOM(
+  nodes: Array<NodeInfo | NodeHeartbeatState>,
+  selectedNodeId?: string | null
+): void {
   const tbody = document.getElementById('node-table-tbody');
   const countEl = document.getElementById('node-list-count');
   const captionEl = document.getElementById('node-list-caption');
@@ -226,7 +240,7 @@ export function updateNodeListDOM(nodes: Array<NodeInfo | NodeHeartbeatState>): 
   if (!tbody) {
     const root = document.getElementById('node-list-root');
     if (root) {
-      root.innerHTML = renderNodeList(nodes, 'normal');
+      root.innerHTML = renderNodeList(nodes, 'normal', undefined, selectedNodeId);
     }
     return;
   }
@@ -235,7 +249,7 @@ export function updateNodeListDOM(nodes: Array<NodeInfo | NodeHeartbeatState>): 
   const onlineCount = sortedNodes.filter(n => n.status === 'ONLINE').length;
   const quorumActive = onlineCount >= 2;
 
-  tbody.innerHTML = sortedNodes.map(node => renderNodeRow(node)).join('');
+  tbody.innerHTML = sortedNodes.map(node => renderNodeRow(node, selectedNodeId)).join('');
 
   if (countEl) {
     countEl.textContent = `(${onlineCount} ONLINE)`;
