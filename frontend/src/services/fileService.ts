@@ -6,10 +6,12 @@
  * - Polls and queries GET /files to provide live replicated file ledger.
  * - Manages real-time search filtering.
  * - Handles non-blocking uploads with progress and status broadcasting.
+ * - Manages upload failure states with inline error display and retry capability.
  */
 
 import { apiService } from './apiService.ts';
 import type { FileInfo, FilesResponse, UploadFileResponse, UploadProgressCallback } from '../types/api.ts';
+import type { UploadState } from '../types/components.ts';
 
 export interface FileServiceResult {
   files: FileInfo[];
@@ -19,6 +21,7 @@ export interface FileServiceResult {
   timestamp: number;
   error: string | null;
   searchQuery: string;
+  uploadState: UploadState | null;
 }
 
 export type FileServiceListener = (result: FileServiceResult) => void;
@@ -36,6 +39,7 @@ export class FileService {
   private lastError: string | null = null;
   private lastTimestamp = Date.now();
   private searchQuery = '';
+  private uploadState: UploadState | null = null;
 
   private listeners: Set<FileServiceListener> = new Set();
   private timerId: ReturnType<typeof setTimeout> | null = null;
@@ -46,7 +50,6 @@ export class FileService {
   private requestTimeoutMs = 5000;
 
   constructor() {
-    // Default initial result
     this.lastTimestamp = Date.now();
   }
 
@@ -110,20 +113,103 @@ export class FileService {
   }
 
   /**
-   * Upload a file and refresh ledger on success.
+   * Upload a file with progress broadcasting and refresh ledger on success.
    */
   public async uploadFile(
     file: File | Blob,
     filename?: string,
     onProgress?: UploadProgressCallback
   ): Promise<UploadFileResponse> {
-    const res = await apiService.uploadFile(file, filename || (file instanceof File ? file.name : 'file.bin'), {
-      onProgress,
-    });
+    const name = filename || (file instanceof File ? file.name : 'upload.bin');
+    const totalBytes = file.size;
 
-    // Refresh files immediately after upload completes
-    await this.refreshFiles();
-    return res;
+    this.uploadState = {
+      isUploading: true,
+      filename: name,
+      percent: 0,
+      loadedBytes: 0,
+      totalBytes,
+      error: null,
+      lastFailedFile: file instanceof File ? file : null,
+    };
+    this.notifyListeners(this.getResult());
+
+    try {
+      const res = await apiService.uploadFile(file, name, {
+        onProgress: (percent, loaded, total) => {
+          if (this.uploadState && this.uploadState.isUploading) {
+            this.uploadState.percent = percent;
+            this.uploadState.loadedBytes = loaded;
+            this.uploadState.totalBytes = total;
+            this.notifyListeners(this.getResult());
+          }
+          if (onProgress) {
+            onProgress(percent, loaded, total);
+          }
+        },
+      });
+
+      this.uploadState = {
+        isUploading: false,
+        filename: name,
+        percent: 100,
+        loadedBytes: totalBytes,
+        totalBytes,
+        error: null,
+      };
+      this.notifyListeners(this.getResult());
+
+      // Refresh files immediately after upload completes
+      await this.refreshFiles();
+
+      // Clear successful upload progress card after a short timeout
+      setTimeout(() => {
+        if (this.uploadState && !this.uploadState.isUploading && !this.uploadState.error) {
+          this.uploadState = null;
+          this.notifyListeners(this.getResult());
+        }
+      }, 1200);
+
+      return res;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Upload failed: coordinator unreachable';
+      this.uploadState = {
+        isUploading: false,
+        filename: name,
+        percent: 0,
+        loadedBytes: 0,
+        totalBytes,
+        error: errorMsg,
+        lastFailedFile: file instanceof File ? file : null,
+      };
+      this.notifyListeners(this.getResult());
+      throw err;
+    }
+  }
+
+  /**
+   * Dismiss current upload error banner.
+   */
+  public dismissUploadError(): void {
+    if (this.uploadState?.error) {
+      this.uploadState = null;
+      this.notifyListeners(this.getResult());
+    }
+  }
+
+  /**
+   * Retry the last failed upload if available.
+   */
+  public async retryLastUpload(): Promise<UploadFileResponse | undefined> {
+    if (this.uploadState?.lastFailedFile) {
+      const fileToRetry = this.uploadState.lastFailedFile;
+      return this.uploadFile(fileToRetry);
+    }
+    return undefined;
+  }
+
+  public getUploadState(): UploadState | null {
+    return this.uploadState;
   }
 
   /**
@@ -190,6 +276,7 @@ export class FileService {
       timestamp: this.lastTimestamp,
       error: this.lastError,
       searchQuery: this.searchQuery,
+      uploadState: this.uploadState,
     };
   }
 
@@ -207,6 +294,7 @@ export class FileService {
     this.totalFiles = 0;
     this.totalSizeBytes = 0;
     this.searchQuery = '';
+    this.uploadState = null;
     this.reachable = false;
     this.lastError = null;
     this.listeners.clear();

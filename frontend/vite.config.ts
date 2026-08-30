@@ -21,6 +21,38 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/upload': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/replicate': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/time': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/sync-time': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/raft': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/leader': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/state': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/node-status': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
   build: {

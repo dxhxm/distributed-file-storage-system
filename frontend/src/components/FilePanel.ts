@@ -6,7 +6,7 @@
 import type { FileInfo } from '../types/api.ts';
 import { formatBytes } from '../tokens/index.ts';
 import { formatTimeUTC } from './NodeList.ts';
-import type { ViewState } from '../types/components.ts';
+import type { ViewState, UploadState } from '../types/components.ts';
 
 export function hasReplica(replicas: string[] = [], targetNode: 'A' | 'B' | 'C'): boolean {
   return replicas.some(r => {
@@ -60,6 +60,50 @@ export function renderFileRow(file: FileInfo): string {
   `;
 }
 
+export function renderUploadProgress(uploadState?: UploadState | null): string {
+  if (!uploadState) return '';
+
+  if (uploadState.isUploading) {
+    const loadedStr = formatBytes(uploadState.loadedBytes);
+    const totalStr = formatBytes(uploadState.totalBytes);
+    return `
+      <div class="upload-progress-card" id="upload-progress-card" aria-live="polite">
+        <div class="upload-progress-header">
+          <div class="upload-progress-title-group">
+            <span class="badge badge-info"><span class="status-dot dot-warn"></span> UPLOADING</span>
+            <span class="font-mono text-ink text-xs upload-filename" title="${uploadState.filename}">${uploadState.filename}</span>
+          </div>
+          <span class="font-mono text-xs text-muted upload-percentage">${uploadState.percent}%</span>
+        </div>
+        <div class="upload-progress-track">
+          <div class="upload-progress-bar" style="width: ${uploadState.percent}%;"></div>
+        </div>
+        <div class="upload-progress-footer">
+          <span class="font-mono text-2xs text-muted upload-bytes">${loadedStr} / ${totalStr}</span>
+          <span class="font-sans text-2xs text-muted">Streaming to cluster coordinator</span>
+        </div>
+      </div>
+    `;
+  }
+
+  if (uploadState.error) {
+    return `
+      <div class="upload-error-card" id="upload-error-card" role="alert">
+        <div class="upload-error-info">
+          <span class="badge badge-down"><span class="status-dot dot-down"></span> UPLOAD FAILED</span>
+          <span class="upload-error-message font-sans text-xs text-ink" title="${uploadState.error}">${uploadState.error}</span>
+        </div>
+        <div class="upload-error-actions">
+          <button type="button" id="btn-retry-upload" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-down-border); color: var(--color-down);">Retry</button>
+          <button type="button" id="btn-dismiss-upload-error" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return '';
+}
+
 export function renderFilePanelSkeleton(): string {
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
@@ -81,47 +125,50 @@ export function renderFilePanelSkeleton(): string {
         </div>
       </div>
 
-      <div class="file-table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Filename</th>
-              <th>Size</th>
-              <th>Status</th>
-              <th>Replicas</th>
-              <th>Modified</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><span class="skeleton-bar" style="width: 140px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 60px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 80px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 50px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 75px;"></span></td>
-            </tr>
-            <tr>
-              <td><span class="skeleton-bar" style="width: 120px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 55px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 80px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 50px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 75px;"></span></td>
-            </tr>
-            <tr>
-              <td><span class="skeleton-bar" style="width: 160px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 70px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 80px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 50px;"></span></td>
-              <td><span class="skeleton-bar" style="width: 75px;"></span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="file-dropzone" id="file-dropzone">
+        <div class="file-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Size</th>
+                <th>Status</th>
+                <th>Replicas</th>
+                <th>Modified</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="skeleton-bar" style="width: 140px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 60px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 80px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 50px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+              </tr>
+              <tr>
+                <td><span class="skeleton-bar" style="width: 120px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 55px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 80px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 50px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+              </tr>
+              <tr>
+                <td><span class="skeleton-bar" style="width: 160px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 70px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 80px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 50px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   `;
 }
 
-export function renderFilePanelEmpty(): string {
+export function renderFilePanelEmpty(uploadState?: UploadState | null): string {
+  const uploadHtml = renderUploadProgress(uploadState);
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -137,21 +184,34 @@ export function renderFilePanelEmpty(): string {
           <input type="search" id="file-search-input" placeholder="Filter filename..." style="width: 100%; max-width: 240px; font-size: var(--text-xs);" aria-label="Filter files">
         </div>
         <div style="display: flex; gap: var(--space-2);">
-          <button id="btn-trigger-sync" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
-          <button id="btn-upload-file" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
+          <button type="button" id="btn-trigger-sync" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
+          <button type="button" id="btn-upload-file" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
         </div>
       </div>
 
-      <div class="state-panel empty-state-panel" id="file-panel-empty">
-        <div class="state-header-group">
-          <span class="badge badge-info">STORAGE EMPTY</span>
-          <h3 class="state-title">No Files Stored in Cluster</h3>
+      <input type="file" id="file-upload-input" style="display: none;" aria-hidden="true">
+
+      <div class="upload-status-slot" id="upload-status-slot">
+        ${uploadHtml}
+      </div>
+
+      <div class="file-dropzone" id="file-dropzone">
+        <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
+          <span class="badge badge-ok"><span class="status-dot dot-ok"></span> DROP TO REPLICATE</span>
+          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">Release file to initiate 3x distributed replication</span>
         </div>
-        <p class="state-message">
-          No files stored in cluster. Upload a file above to initiate 3x distributed replication across online nodes.
-        </p>
-        <div class="state-action-row">
-          <button id="btn-empty-upload" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload First File</button>
+
+        <div class="state-panel empty-state-panel" id="file-panel-empty">
+          <div class="state-header-group">
+            <span class="badge badge-info">STORAGE EMPTY</span>
+            <h3 class="state-title">No Files Stored in Cluster</h3>
+          </div>
+          <p class="state-message">
+            No files stored in cluster. Upload a file above or drag and drop here to initiate 3x distributed replication across online nodes.
+          </p>
+          <div class="state-action-row">
+            <button type="button" id="btn-empty-upload" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload First File</button>
+          </div>
         </div>
       </div>
     </section>
@@ -179,7 +239,7 @@ export function renderFilePanelError(errorMsg?: string): string {
           ${message}
         </p>
         <div class="state-action-row">
-          <button id="btn-retry-files" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Ledger Query</button>
+          <button type="button" id="btn-retry-files" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Ledger Query</button>
         </div>
       </div>
     </section>
@@ -192,10 +252,11 @@ export function renderFilePanel(
   errorMessage?: string,
   totalFiles?: number,
   totalSizeBytes?: number,
-  searchQuery: string = ''
+  searchQuery: string = '',
+  uploadState?: UploadState | null
 ): string {
   if (viewState === 'loading') return renderFilePanelSkeleton();
-  if (viewState === 'empty') return renderFilePanelEmpty();
+  if (viewState === 'empty') return renderFilePanelEmpty(uploadState);
   if (viewState === 'error') return renderFilePanelError(errorMessage);
 
   const effTotalFiles = totalFiles !== undefined ? totalFiles : files.length;
@@ -213,11 +274,13 @@ export function renderFilePanel(
         </tr>
       `;
     } else {
-      return renderFilePanelEmpty();
+      return renderFilePanelEmpty(uploadState);
     }
   } else {
     rowsHtml = files.map(file => renderFileRow(file)).join('');
   }
+
+  const uploadHtml = renderUploadProgress(uploadState);
 
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
@@ -246,21 +309,34 @@ export function renderFilePanel(
         </div>
       </div>
 
-      <div class="file-table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Filename</th>
-              <th>Size</th>
-              <th>Status</th>
-              <th>Replicas</th>
-              <th>Modified</th>
-            </tr>
-          </thead>
-          <tbody id="file-table-tbody">
-            ${rowsHtml}
-          </tbody>
-        </table>
+      <input type="file" id="file-upload-input" style="display: none;" aria-hidden="true">
+
+      <div class="upload-status-slot" id="upload-status-slot">
+        ${uploadHtml}
+      </div>
+
+      <div class="file-dropzone" id="file-dropzone">
+        <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
+          <span class="badge badge-ok"><span class="status-dot dot-ok"></span> DROP TO REPLICATE</span>
+          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">Release file to initiate 3x distributed replication</span>
+        </div>
+
+        <div class="file-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Size</th>
+                <th>Status</th>
+                <th>Replicas</th>
+                <th>Modified</th>
+              </tr>
+            </thead>
+            <tbody id="file-table-tbody">
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   `;
@@ -268,22 +344,24 @@ export function renderFilePanel(
 
 /**
  * High-performance in-place DOM updater for Zone 3 File Panel.
- * Updates file rows and counts without losing search input focus or resetting page DOM.
+ * Updates file rows, counts, and upload progress without losing search input focus or resetting page DOM.
  */
 export function updateFilePanelDOM(
   files: FileInfo[],
   totalFiles?: number,
   totalSizeBytes?: number,
-  searchQuery: string = ''
+  searchQuery: string = '',
+  uploadState?: UploadState | null
 ): void {
   const tbody = document.getElementById('file-table-tbody');
   const countEl = document.getElementById('file-panel-count');
   const searchInput = document.getElementById('file-search-input') as HTMLInputElement | null;
+  const statusSlot = document.getElementById('upload-status-slot');
 
   if (!tbody || !countEl) {
     const root = document.getElementById('file-panel-root');
     if (root) {
-      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery);
+      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState);
     }
     return;
   }
@@ -295,6 +373,10 @@ export function updateFilePanelDOM(
 
   if (searchInput && searchInput !== document.activeElement && searchInput.value !== searchQuery) {
     searchInput.value = searchQuery;
+  }
+
+  if (statusSlot) {
+    statusSlot.innerHTML = renderUploadProgress(uploadState);
   }
 
   if (files.length === 0) {
