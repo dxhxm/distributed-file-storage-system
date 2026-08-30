@@ -13,6 +13,8 @@ import type {
   NodesResponse,
   NodeDetailResponse,
   FilesResponse,
+  UploadFileResponse,
+  UploadOptions,
   ClientConfig,
   RequestOptions,
 } from '../types/api.ts';
@@ -64,6 +66,14 @@ class ApiService {
 
   public async getFiles(options?: RequestOptions): Promise<FilesResponse> {
     return this.client.getFiles(options);
+  }
+
+  public async uploadFile(
+    file: File | Blob,
+    filenameOrOptions?: string | UploadOptions,
+    options?: UploadOptions
+  ): Promise<UploadFileResponse> {
+    return this.client.uploadFile(file, filenameOrOptions, options);
   }
 
   public getRawClient(): DistributedStorageClient {

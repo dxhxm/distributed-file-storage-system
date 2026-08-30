@@ -5,7 +5,7 @@
 
 import './styles/index.css';
 import { router } from './router/index.ts';
-import { apiService, healthService, clusterStatusService, heartbeatService } from './services/index.ts';
+import { apiService, healthService, clusterStatusService, heartbeatService, fileService } from './services/index.ts';
 import {
   renderClusterStatus,
   renderHeartbeatRail,
@@ -16,6 +16,7 @@ import {
   updateHeartbeatRailDOM,
   updateNodeListDOM,
   updateNodeDetailDOM,
+  updateFilePanelDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 import type { NodeDetailResponse } from './types/api.ts';
@@ -266,6 +267,28 @@ export function getViewState(): ViewState {
   return currentViewState;
 }
 
+function attachFilePanelListeners(): void {
+  const appMain = document.getElementById('app-main');
+  if (!appMain || appMain.dataset.filesBound) return;
+  appMain.dataset.filesBound = 'true';
+
+  appMain.addEventListener('input', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.id === 'file-search-input') {
+      const val = (target as HTMLInputElement).value;
+      fileService.setSearchQuery(val);
+    }
+  });
+
+  appMain.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('#btn-trigger-sync') || target?.closest('#btn-retry-files')) {
+      e.preventDefault();
+      void fileService.refreshFiles();
+    }
+  });
+}
+
 function renderDashboard(): void {
   const appContainer = document.getElementById('app-main');
   if (!appContainer) return;
@@ -273,6 +296,7 @@ function renderDashboard(): void {
   const currentHealth = healthService.getLastResult();
   const currentCluster = clusterStatusService.getLastResult();
   const currentHeartbeats = heartbeatService.getLastResult();
+  const currentFiles = fileService.getResult();
 
   const switcherHtml = `
     <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
@@ -310,7 +334,14 @@ function renderDashboard(): void {
         ${renderNodeList(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
       </div>
       <div id="file-panel-root">
-        ${renderFilePanel([], currentViewState)}
+        ${renderFilePanel(
+          currentFiles.files,
+          currentViewState,
+          currentFiles.error || undefined,
+          currentFiles.totalFiles,
+          currentFiles.totalSizeBytes,
+          currentFiles.searchQuery
+        )}
       </div>
     </div>
 
@@ -329,6 +360,7 @@ function renderDashboard(): void {
 
   attachStateSwitcherListeners();
   attachInteractiveNodeSelection();
+  attachFilePanelListeners();
 
   if (currentViewState === 'normal') {
     attachInteractiveHoverLinks();
@@ -399,17 +431,25 @@ function init(): void {
     }
   });
 
-  // Start routing, health checking, cluster status polling, and heartbeat pulse engine (~500ms cadence)
+  // Subscribe to file ledger updates for Zone 3 live synchronization
+  fileService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    updateFilePanelDOM(result.files, result.totalFiles, result.totalSizeBytes, result.searchQuery);
+  });
+
+  // Start routing, health checking, cluster status polling, heartbeat pulse engine, and file ledger polling
   router.start();
   healthService.startPolling(3000);
   clusterStatusService.startPolling(500);
   heartbeatService.startPolling(500);
+  fileService.startPolling(3000);
 
   // Lifecycle listeners to prevent memory leaks
   window.addEventListener('beforeunload', () => {
     clusterStatusService.stopPolling();
     heartbeatService.stopPolling();
     healthService.stopPolling();
+    fileService.stopPolling();
   });
 }
 
