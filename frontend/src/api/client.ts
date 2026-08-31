@@ -172,7 +172,7 @@ export class DistributedStorageClient {
   }
 
   /**
-   * POST /upload
+   * POST /files/upload (with fallback to /upload)
    * Uploads a file with progress tracking and streaming support.
    */
   public async uploadFile(
@@ -185,7 +185,7 @@ export class DistributedStorageClient {
       : (file instanceof File ? file.name : 'upload.bin');
     const opts = typeof filenameOrOptions === 'object' ? filenameOrOptions : (options ?? {});
     const targetBaseUrl = opts.baseUrl ?? this.baseUrl;
-    const url = buildUrl(targetBaseUrl, '/upload');
+    const url = buildUrl(targetBaseUrl, '/files/upload');
     const timeoutMs = opts.timeoutMs ?? 30000;
 
     // Use XMLHttpRequest in browser runtime for accurate non-blocking upload progress
@@ -382,7 +382,7 @@ export async function getFiles(
 }
 
 /**
- * POST /upload
+ * POST /files/upload
  */
 export async function uploadFile(
   file: File | Blob,
