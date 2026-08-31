@@ -91,6 +91,7 @@ async def list_files():
     }
 
 
+@router.post("/files/upload")
 @router.post("/upload")
 async def upload(file: UploadFile = File(...)):
     """Upload a file and replicate it to peer nodes."""

@@ -5,7 +5,7 @@
 
 import './styles/index.css';
 import { router } from './router/index.ts';
-import { apiService, healthService, clusterStatusService, heartbeatService } from './services/index.ts';
+import { apiService, healthService, clusterStatusService, heartbeatService, fileService } from './services/index.ts';
 import {
   renderClusterStatus,
   renderHeartbeatRail,
@@ -16,6 +16,7 @@ import {
   updateHeartbeatRailDOM,
   updateNodeListDOM,
   updateNodeDetailDOM,
+  updateFilePanelDOM,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 import type { NodeDetailResponse } from './types/api.ts';
@@ -266,6 +267,126 @@ export function getViewState(): ViewState {
   return currentViewState;
 }
 
+function attachFilePanelListeners(): void {
+  const appMain = document.getElementById('app-main');
+  if (!appMain || appMain.dataset.filesBound) return;
+  appMain.dataset.filesBound = 'true';
+
+  // Search input filtering
+  appMain.addEventListener('input', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.id === 'file-search-input') {
+      const val = (target as HTMLInputElement).value;
+      fileService.setSearchQuery(val);
+    }
+  });
+
+  // File picker change listener
+  appMain.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.id === 'file-upload-input') {
+      const fileInput = target as HTMLInputElement;
+      const files = fileInput.files;
+      if (files && files.length > 0 && files[0]) {
+        const fileToUpload = files[0];
+        void fileService.uploadFile(fileToUpload).catch(() => {
+          // Handled and displayed via fileService uploadState
+        });
+        fileInput.value = '';
+      }
+    }
+  });
+
+  // Button clicks: Upload, Sync, Retry, Dismiss
+  appMain.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    // Trigger file picker
+    if (target.closest('#btn-upload-file') || target.closest('#btn-empty-upload')) {
+      e.preventDefault();
+      const fileInput = document.getElementById('file-upload-input') as HTMLInputElement | null;
+      if (fileInput) {
+        fileInput.click();
+      }
+      return;
+    }
+
+    // Trigger ledger sync / retry query
+    if (target.closest('#btn-trigger-sync') || target.closest('#btn-retry-files')) {
+      e.preventDefault();
+      void fileService.refreshFiles();
+      return;
+    }
+
+    // Retry failed upload
+    if (target.closest('#btn-retry-upload')) {
+      e.preventDefault();
+      void fileService.retryLastUpload().catch(() => {
+        // Handled via fileService uploadState
+      });
+      return;
+    }
+
+    // Dismiss upload error
+    if (target.closest('#btn-dismiss-upload-error')) {
+      e.preventDefault();
+      fileService.dismissUploadError();
+      return;
+    }
+  });
+
+  // Drag and drop event listeners for file replication
+  let dragCounter = 0;
+
+  appMain.addEventListener('dragenter', (e) => {
+    const dropzone = document.getElementById('file-dropzone');
+    if (!dropzone) return;
+    if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      dragCounter++;
+      dropzone.classList.add('drag-active');
+    }
+  });
+
+  appMain.addEventListener('dragover', (e) => {
+    const dropzone = document.getElementById('file-dropzone');
+    if (!dropzone) return;
+    if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      dropzone.classList.add('drag-active');
+    }
+  });
+
+  appMain.addEventListener('dragleave', () => {
+    const dropzone = document.getElementById('file-dropzone');
+    if (!dropzone) return;
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) {
+      dropzone.classList.remove('drag-active');
+    }
+  });
+
+  appMain.addEventListener('drop', (e) => {
+    const dropzone = document.getElementById('file-dropzone');
+    if (dropzone) {
+      dropzone.classList.remove('drag-active');
+    }
+    dragCounter = 0;
+
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile) {
+        void fileService.uploadFile(droppedFile).catch(() => {
+          // Handled and displayed via fileService uploadState
+        });
+      }
+    }
+  });
+}
+
 function renderDashboard(): void {
   const appContainer = document.getElementById('app-main');
   if (!appContainer) return;
@@ -273,6 +394,7 @@ function renderDashboard(): void {
   const currentHealth = healthService.getLastResult();
   const currentCluster = clusterStatusService.getLastResult();
   const currentHeartbeats = heartbeatService.getLastResult();
+  const currentFiles = fileService.getResult();
 
   const switcherHtml = `
     <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
@@ -310,7 +432,15 @@ function renderDashboard(): void {
         ${renderNodeList(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
       </div>
       <div id="file-panel-root">
-        ${renderFilePanel([], currentViewState)}
+        ${renderFilePanel(
+          currentFiles.files,
+          currentViewState,
+          currentFiles.error || undefined,
+          currentFiles.totalFiles,
+          currentFiles.totalSizeBytes,
+          currentFiles.searchQuery,
+          currentFiles.uploadState
+        )}
       </div>
     </div>
 
@@ -329,6 +459,7 @@ function renderDashboard(): void {
 
   attachStateSwitcherListeners();
   attachInteractiveNodeSelection();
+  attachFilePanelListeners();
 
   if (currentViewState === 'normal') {
     attachInteractiveHoverLinks();
@@ -399,17 +530,25 @@ function init(): void {
     }
   });
 
-  // Start routing, health checking, cluster status polling, and heartbeat pulse engine (~500ms cadence)
+  // Subscribe to file ledger updates for Zone 3 live synchronization
+  fileService.subscribe((result) => {
+    if (currentViewState !== 'normal') return;
+    updateFilePanelDOM(result.files, result.totalFiles, result.totalSizeBytes, result.searchQuery, result.uploadState);
+  });
+
+  // Start routing, health checking, cluster status polling, heartbeat pulse engine, and file ledger polling
   router.start();
   healthService.startPolling(3000);
   clusterStatusService.startPolling(500);
   heartbeatService.startPolling(500);
+  fileService.startPolling(3000);
 
   // Lifecycle listeners to prevent memory leaks
   window.addEventListener('beforeunload', () => {
     clusterStatusService.stopPolling();
     heartbeatService.stopPolling();
     healthService.stopPolling();
+    fileService.stopPolling();
   });
 }
 

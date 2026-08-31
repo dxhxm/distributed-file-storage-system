@@ -357,6 +357,138 @@
   background-color: var(--color-ok-bg);
 }
 
+/* Zone 3 File Dropzone & Drag Overlay */
+.file-dropzone {
+  position: relative;
+  width: 100%;
+}
+
+.file-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(14, 18, 16, 0.92);
+  border: 1px dashed var(--color-ok-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+.file-dropzone.drag-active .file-drop-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Upload Progress & Error Cards */
+.upload-status-slot {
+  margin-bottom: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.upload-progress-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line-bright);
+  padding: var(--space-2-5) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-radius: 0px;
+}
+
+.upload-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.upload-progress-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.upload-filename {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.upload-progress-track {
+  height: 4px;
+  background-color: var(--color-surface-subtle);
+  border: 1px solid var(--color-line-subtle);
+  overflow: hidden;
+  width: 100%;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background-color: var(--color-ok);
+  width: 0%;
+  transition: width 80ms ease-out;
+}
+
+.upload-progress-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-2xs);
+}
+
+.upload-error-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-down-border);
+  padding: var(--space-2-5) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: 0px;
+}
+
+.upload-error-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.upload-error-message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.upload-error-actions {
+  display: flex;
+  gap: var(--space-1-5);
+  flex-shrink: 0;
+}
+
+.btn-error-action {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-subtle);
+  border: 1px solid var(--color-line);
+  cursor: pointer;
+  border-radius: 0px;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-error-action:hover {
+  background-color: var(--color-surface-hover);
+}
+
 /* ==========================================================================
    6. RESPONSIVE BREAKPOINTS (1280PX DESKTOP & 375PX MOBILE)
    ========================================================================== */

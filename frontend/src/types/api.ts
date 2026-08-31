@@ -99,6 +99,14 @@ export interface FilesResponse {
 }
 
 /**
+ * Response schema for `POST /upload`
+ */
+export interface UploadFileResponse {
+  message: string;
+  filename: string;
+}
+
+/**
  * Standard backend error payload schema.
  */
 export interface ApiErrorResponse {
@@ -106,6 +114,18 @@ export interface ApiErrorResponse {
   error?: string;
   message?: string;
   status_code?: number;
+}
+
+/**
+ * Upload progress callback signature.
+ */
+export type UploadProgressCallback = (percent: number, loaded: number, total: number) => void;
+
+/**
+ * Options for file upload requests.
+ */
+export interface UploadOptions extends RequestOptions {
+  onProgress?: UploadProgressCallback;
 }
 
 /**

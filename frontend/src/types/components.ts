@@ -36,6 +36,16 @@ export interface NodeListProps {
   onSelectNode?: (nodeId: string) => void;
 }
 
+export interface UploadState {
+  isUploading: boolean;
+  filename: string;
+  percent: number;
+  loadedBytes: number;
+  totalBytes: number;
+  error: string | null;
+  lastFailedFile?: File | null;
+}
+
 export interface FilePanelProps {
   files?: FileInfo[];
   state?: ViewState;
@@ -43,6 +53,8 @@ export interface FilePanelProps {
   totalFiles?: number;
   totalSizeBytes?: number;
   isLoading?: boolean;
+  uploadState?: UploadState | null;
+  searchQuery?: string;
   onUpload?: (file: File) => void;
   onSync?: () => void;
 }

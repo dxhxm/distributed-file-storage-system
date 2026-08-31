@@ -9,6 +9,8 @@ import type {
   NodesResponse,
   NodeDetailResponse,
   FilesResponse,
+  UploadFileResponse,
+  UploadOptions,
   RequestOptions,
   ClientConfig,
   ApiErrorResponse,
@@ -168,6 +170,129 @@ export class DistributedStorageClient {
   public async getFiles(options?: RequestOptions): Promise<FilesResponse> {
     return this.request<FilesResponse>('/files', options);
   }
+
+  /**
+   * POST /files/upload (with fallback to /upload)
+   * Uploads a file with progress tracking and streaming support.
+   */
+  public async uploadFile(
+    file: File | Blob,
+    filenameOrOptions?: string | UploadOptions,
+    options?: UploadOptions
+  ): Promise<UploadFileResponse> {
+    const filename = typeof filenameOrOptions === 'string'
+      ? filenameOrOptions
+      : (file instanceof File ? file.name : 'upload.bin');
+    const opts = typeof filenameOrOptions === 'object' ? filenameOrOptions : (options ?? {});
+    const targetBaseUrl = opts.baseUrl ?? this.baseUrl;
+    const url = buildUrl(targetBaseUrl, '/files/upload');
+    const timeoutMs = opts.timeoutMs ?? 30000;
+
+    // Use XMLHttpRequest in browser runtime for accurate non-blocking upload progress
+    if (typeof XMLHttpRequest !== 'undefined' && !opts.signal) {
+      return new Promise<UploadFileResponse>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('file', file, filename);
+
+        xhr.open('POST', url, true);
+        xhr.timeout = timeoutMs;
+        xhr.responseType = 'json';
+
+        if (opts.headers) {
+          for (const [key, value] of Object.entries(opts.headers)) {
+            xhr.setRequestHeader(key, value);
+          }
+        }
+
+        if (xhr.upload && opts.onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+              opts.onProgress!(percent, event.loaded, event.total);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const resp = (xhr.response && typeof xhr.response === 'object')
+              ? xhr.response as UploadFileResponse
+              : { message: 'File uploaded successfully', filename };
+            if (opts.onProgress) opts.onProgress(100, file.size, file.size);
+            resolve(resp);
+          } else {
+            let errorData: ApiErrorResponse | undefined;
+            if (xhr.response && typeof xhr.response === 'object') {
+              errorData = xhr.response as ApiErrorResponse;
+            }
+            const msg = errorData?.detail || errorData?.message || `Upload failed with status ${xhr.status}`;
+            reject(new ApiClientError(`Request to ${url} failed with status ${xhr.status}: ${msg}`, xhr.status, url, errorData));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new ApiClientError(`Network request to ${url} failed during upload`, 0, url));
+        };
+
+        xhr.ontimeout = () => {
+          reject(new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url));
+        };
+
+        xhr.send(formData);
+      });
+    }
+
+    // Fallback to fetchImpl (Node / tests)
+    const formData = new FormData();
+    formData.append('file', file, filename);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    if (opts.signal) {
+      opts.signal.addEventListener('abort', () => controller.abort());
+    }
+
+    try {
+      if (opts.onProgress) opts.onProgress(10, 0, file.size);
+      const response = await this.fetchImpl(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+          ...opts.headers,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        let errorData: ApiErrorResponse | undefined;
+        try {
+          const rawJson = (await response.json()) as unknown;
+          if (rawJson && typeof rawJson === 'object') {
+            errorData = rawJson as ApiErrorResponse;
+          }
+        } catch {
+          // non-json
+        }
+        const errorMessage = errorData?.detail || errorData?.message || response.statusText || `HTTP ${response.status}`;
+        throw new ApiClientError(`Request to ${url} failed with status ${response.status}: ${errorMessage}`, response.status, url, errorData);
+      }
+
+      if (opts.onProgress) opts.onProgress(100, file.size, file.size);
+      const jsonPayload = (await response.json()) as unknown;
+      return jsonPayload as UploadFileResponse;
+    } catch (error: unknown) {
+      if (error instanceof ApiClientError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url);
+      }
+      const msg = error instanceof Error ? error.message : 'Unknown network error';
+      throw new ApiClientError(`Network request to ${url} failed: ${msg}`, 0, url);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 /**
@@ -254,4 +379,24 @@ export async function getFiles(
   extraOptions?: RequestOptions
 ): Promise<FilesResponse> {
   return defaultClient.getFiles(resolveOptions(baseUrlOrOptions, extraOptions));
+}
+
+/**
+ * POST /files/upload
+ */
+export async function uploadFile(
+  file: File | Blob,
+  options?: UploadOptions
+): Promise<UploadFileResponse>;
+export async function uploadFile(
+  file: File | Blob,
+  filename: string,
+  options?: UploadOptions
+): Promise<UploadFileResponse>;
+export async function uploadFile(
+  file: File | Blob,
+  filenameOrOptions?: string | UploadOptions,
+  options?: UploadOptions
+): Promise<UploadFileResponse> {
+  return defaultClient.uploadFile(file, filenameOrOptions, options);
 }
