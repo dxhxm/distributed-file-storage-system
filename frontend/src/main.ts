@@ -334,6 +334,27 @@ function attachFilePanelListeners(): void {
       fileService.dismissUploadError();
       return;
     }
+
+    // Trigger file download
+    const downloadBtn = target.closest<HTMLElement>('.btn-download-file');
+    if (downloadBtn) {
+      e.preventDefault();
+      const fileId = downloadBtn.dataset.fileId;
+      const filename = downloadBtn.dataset.filename;
+      if (fileId) {
+        void fileService.downloadFile(fileId, filename).catch(() => {
+          // Handled and displayed via fileService downloadState
+        });
+      }
+      return;
+    }
+
+    // Dismiss download error
+    if (target.closest('#btn-dismiss-download-error')) {
+      e.preventDefault();
+      fileService.dismissDownloadError();
+      return;
+    }
   });
 
   // Drag and drop event listeners for file replication
@@ -439,7 +460,8 @@ function renderDashboard(): void {
           currentFiles.totalFiles,
           currentFiles.totalSizeBytes,
           currentFiles.searchQuery,
-          currentFiles.uploadState
+          currentFiles.uploadState,
+          currentFiles.downloadState
         )}
       </div>
     </div>
@@ -533,7 +555,14 @@ function init(): void {
   // Subscribe to file ledger updates for Zone 3 live synchronization
   fileService.subscribe((result) => {
     if (currentViewState !== 'normal') return;
-    updateFilePanelDOM(result.files, result.totalFiles, result.totalSizeBytes, result.searchQuery, result.uploadState);
+    updateFilePanelDOM(
+      result.files,
+      result.totalFiles,
+      result.totalSizeBytes,
+      result.searchQuery,
+      result.uploadState,
+      result.downloadState
+    );
   });
 
   // Start routing, health checking, cluster status polling, heartbeat pulse engine, and file ledger polling

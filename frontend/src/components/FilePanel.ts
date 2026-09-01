@@ -6,7 +6,7 @@
 import type { FileInfo } from '../types/api.ts';
 import { formatBytes } from '../tokens/index.ts';
 import { formatTimeUTC } from './NodeList.ts';
-import type { ViewState, UploadState } from '../types/components.ts';
+import type { ViewState, UploadState, DownloadState } from '../types/components.ts';
 
 export function hasReplica(replicas: string[] = [], targetNode: 'A' | 'B' | 'C'): boolean {
   return replicas.some(r => {
@@ -18,7 +18,7 @@ export function hasReplica(replicas: string[] = [], targetNode: 'A' | 'B' | 'C')
   });
 }
 
-export function renderFileRow(file: FileInfo): string {
+export function renderFileRow(file: FileInfo, downloadState?: DownloadState | null): string {
   const isReplicated = file.status === 'REPLICATED';
   const isSyncing = file.status === 'SYNCING';
   const isDegraded = file.status === 'DEGRADED';
@@ -42,6 +42,10 @@ export function renderFileRow(file: FileInfo): string {
       : `<span class="replica-pill" style="opacity: 0.35;" title="Missing on Node C">-</span>`);
 
   const timeStr = file.modified_at ? formatTimeUTC(file.modified_at) : '21:40:15 UTC';
+  const isDownloading = Boolean(
+    downloadState?.isDownloading &&
+    (downloadState.fileId === file.file_id || downloadState.filename === file.name)
+  );
 
   return `
     <tr class="file-row" id="file-row-${file.file_id || encodeURIComponent(file.name)}">
@@ -56,6 +60,18 @@ export function renderFileRow(file: FileInfo): string {
         </div>
       </td>
       <td class="font-mono text-xs text-muted">${timeStr}</td>
+      <td>
+        <button
+          type="button"
+          class="btn-file-action btn-download-file"
+          data-file-id="${file.file_id || file.name}"
+          data-filename="${file.name}"
+          title="Download ${file.name}"
+          ${isDownloading ? 'disabled' : ''}
+        >
+          ${isDownloading ? 'Downloading...' : 'Download'}
+        </button>
+      </td>
     </tr>
   `;
 }
@@ -104,6 +120,21 @@ export function renderUploadProgress(uploadState?: UploadState | null): string {
   return '';
 }
 
+export function renderDownloadError(downloadState?: DownloadState | null): string {
+  if (!downloadState?.error) return '';
+  return `
+    <div class="download-error-card" id="download-error-card" role="alert">
+      <div class="download-error-info">
+        <span class="badge badge-down"><span class="status-dot dot-down"></span> REPLICA ERROR</span>
+        <span class="download-error-message font-sans text-xs text-ink" title="${downloadState.error}">${downloadState.error}</span>
+      </div>
+      <div class="download-error-actions">
+        <button type="button" id="btn-dismiss-download-error" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
+      </div>
+    </div>
+  `;
+}
+
 export function renderFilePanelSkeleton(): string {
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
@@ -135,6 +166,7 @@ export function renderFilePanelSkeleton(): string {
                 <th>Status</th>
                 <th>Replicas</th>
                 <th>Modified</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -144,6 +176,7 @@ export function renderFilePanelSkeleton(): string {
                 <td><span class="skeleton-bar" style="width: 80px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 50px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 60px;"></span></td>
               </tr>
               <tr>
                 <td><span class="skeleton-bar" style="width: 120px;"></span></td>
@@ -151,6 +184,7 @@ export function renderFilePanelSkeleton(): string {
                 <td><span class="skeleton-bar" style="width: 80px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 50px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 60px;"></span></td>
               </tr>
               <tr>
                 <td><span class="skeleton-bar" style="width: 160px;"></span></td>
@@ -158,6 +192,7 @@ export function renderFilePanelSkeleton(): string {
                 <td><span class="skeleton-bar" style="width: 80px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 50px;"></span></td>
                 <td><span class="skeleton-bar" style="width: 75px;"></span></td>
+                <td><span class="skeleton-bar" style="width: 60px;"></span></td>
               </tr>
             </tbody>
           </table>
@@ -167,8 +202,12 @@ export function renderFilePanelSkeleton(): string {
   `;
 }
 
-export function renderFilePanelEmpty(uploadState?: UploadState | null): string {
+export function renderFilePanelEmpty(
+  uploadState?: UploadState | null,
+  downloadState?: DownloadState | null
+): string {
   const uploadHtml = renderUploadProgress(uploadState);
+  const downloadHtml = renderDownloadError(downloadState);
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -193,6 +232,7 @@ export function renderFilePanelEmpty(uploadState?: UploadState | null): string {
 
       <div class="upload-status-slot" id="upload-status-slot">
         ${uploadHtml}
+        ${downloadHtml}
       </div>
 
       <div class="file-dropzone" id="file-dropzone">
@@ -253,10 +293,11 @@ export function renderFilePanel(
   totalFiles?: number,
   totalSizeBytes?: number,
   searchQuery: string = '',
-  uploadState?: UploadState | null
+  uploadState?: UploadState | null,
+  downloadState?: DownloadState | null
 ): string {
   if (viewState === 'loading') return renderFilePanelSkeleton();
-  if (viewState === 'empty') return renderFilePanelEmpty(uploadState);
+  if (viewState === 'empty') return renderFilePanelEmpty(uploadState, downloadState);
   if (viewState === 'error') return renderFilePanelError(errorMessage);
 
   const effTotalFiles = totalFiles !== undefined ? totalFiles : files.length;
@@ -268,19 +309,20 @@ export function renderFilePanel(
     if (searchQuery.trim().length > 0) {
       rowsHtml = `
         <tr>
-          <td colspan="5" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);" class="font-mono">
+          <td colspan="6" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);" class="font-mono">
             No files matching "${searchQuery}"
           </td>
         </tr>
       `;
     } else {
-      return renderFilePanelEmpty(uploadState);
+      return renderFilePanelEmpty(uploadState, downloadState);
     }
   } else {
-    rowsHtml = files.map(file => renderFileRow(file)).join('');
+    rowsHtml = files.map(file => renderFileRow(file, downloadState)).join('');
   }
 
   const uploadHtml = renderUploadProgress(uploadState);
+  const downloadHtml = renderDownloadError(downloadState);
 
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
@@ -313,6 +355,7 @@ export function renderFilePanel(
 
       <div class="upload-status-slot" id="upload-status-slot">
         ${uploadHtml}
+        ${downloadHtml}
       </div>
 
       <div class="file-dropzone" id="file-dropzone">
@@ -330,6 +373,7 @@ export function renderFilePanel(
                 <th>Status</th>
                 <th>Replicas</th>
                 <th>Modified</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="file-table-tbody">
@@ -344,14 +388,15 @@ export function renderFilePanel(
 
 /**
  * High-performance in-place DOM updater for Zone 3 File Panel.
- * Updates file rows, counts, and upload progress without losing search input focus or resetting page DOM.
+ * Updates file rows, counts, and upload/download progress without losing search input focus or resetting page DOM.
  */
 export function updateFilePanelDOM(
   files: FileInfo[],
   totalFiles?: number,
   totalSizeBytes?: number,
   searchQuery: string = '',
-  uploadState?: UploadState | null
+  uploadState?: UploadState | null,
+  downloadState?: DownloadState | null
 ): void {
   const tbody = document.getElementById('file-table-tbody');
   const countEl = document.getElementById('file-panel-count');
@@ -361,7 +406,7 @@ export function updateFilePanelDOM(
   if (!tbody || !countEl) {
     const root = document.getElementById('file-panel-root');
     if (root) {
-      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState);
+      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState, downloadState);
     }
     return;
   }
@@ -376,14 +421,16 @@ export function updateFilePanelDOM(
   }
 
   if (statusSlot) {
-    statusSlot.innerHTML = renderUploadProgress(uploadState);
+    const uploadHtml = renderUploadProgress(uploadState);
+    const downloadHtml = renderDownloadError(downloadState);
+    statusSlot.innerHTML = `${uploadHtml}${downloadHtml}`;
   }
 
   if (files.length === 0) {
     if (searchQuery.trim().length > 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);" class="font-mono">
+          <td colspan="6" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);" class="font-mono">
             No files matching "${searchQuery}"
           </td>
         </tr>
@@ -391,7 +438,7 @@ export function updateFilePanelDOM(
     } else {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);">
+          <td colspan="6" style="text-align: center; color: var(--color-muted); padding: var(--space-4); font-size: var(--text-xs);">
             No files stored in cluster.
           </td>
         </tr>
@@ -400,5 +447,5 @@ export function updateFilePanelDOM(
     return;
   }
 
-  tbody.innerHTML = files.map(file => renderFileRow(file)).join('');
+  tbody.innerHTML = files.map(file => renderFileRow(file, downloadState)).join('');
 }

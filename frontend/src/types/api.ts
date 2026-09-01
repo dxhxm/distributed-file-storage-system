@@ -116,6 +116,11 @@ export interface ApiErrorResponse {
   status_code?: number;
 }
 
+export interface DownloadFileResult {
+  blob: Blob;
+  filename: string;
+}
+
 /**
  * Upload progress callback signature.
  */

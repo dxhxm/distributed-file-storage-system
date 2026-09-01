@@ -9,6 +9,7 @@ import type {
   NodesResponse,
   NodeDetailResponse,
   FilesResponse,
+  DownloadFileResult,
   UploadFileResponse,
   UploadOptions,
   RequestOptions,
@@ -169,6 +170,78 @@ export class DistributedStorageClient {
    */
   public async getFiles(options?: RequestOptions): Promise<FilesResponse> {
     return this.request<FilesResponse>('/files', options);
+  }
+
+  /**
+   * GET /files/{file_id}
+   * Downloads a file replica as a Blob with filename resolution and explicit error reporting.
+   */
+  public async downloadFile(fileId: string, options: RequestOptions = {}): Promise<DownloadFileResult> {
+    const targetBaseUrl = options.baseUrl ?? this.baseUrl;
+    const url = buildUrl(targetBaseUrl, `/files/${encodeURIComponent(fileId)}`);
+    const timeoutMs = options.timeoutMs ?? 30000;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => {
+        controller.abort();
+      });
+    }
+
+    try {
+      const response = await this.fetchImpl(url, {
+        method: 'GET',
+        headers: {
+          ...options.headers,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        let errorData: ApiErrorResponse | undefined;
+        try {
+          const rawJson = (await response.json()) as unknown;
+          if (rawJson && typeof rawJson === 'object') {
+            errorData = rawJson as ApiErrorResponse;
+          }
+        } catch {
+          // non-json
+        }
+        const errorMessage = errorData?.detail || errorData?.message || errorData?.error || response.statusText || `HTTP ${response.status}`;
+        throw new ApiClientError(
+          `Request to ${url} failed with status ${response.status}: ${errorMessage}`,
+          response.status,
+          url,
+          errorData
+        );
+      }
+
+      // Extract filename from Content-Disposition if present: e.g. attachment; filename="example.txt"
+      let filename = fileId;
+      const disposition = response.headers?.get ? response.headers.get('Content-Disposition') : null;
+      if (disposition) {
+        const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(disposition);
+        if (match && match[1]) {
+          filename = decodeURIComponent(match[1].trim());
+        }
+      }
+
+      const blob = await response.blob();
+      return { blob, filename };
+    } catch (error: unknown) {
+      if (error instanceof ApiClientError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url);
+      }
+      const msg = error instanceof Error ? error.message : 'Unknown network error';
+      throw new ApiClientError(`Network request to ${url} failed: ${msg}`, 0, url);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
@@ -379,6 +452,26 @@ export async function getFiles(
   extraOptions?: RequestOptions
 ): Promise<FilesResponse> {
   return defaultClient.getFiles(resolveOptions(baseUrlOrOptions, extraOptions));
+}
+
+/**
+ * GET /files/{file_id}
+ */
+export async function downloadFile(
+  fileId: string,
+  options?: RequestOptions
+): Promise<DownloadFileResult>;
+export async function downloadFile(
+  fileId: string,
+  baseUrl: string,
+  options?: RequestOptions
+): Promise<DownloadFileResult>;
+export async function downloadFile(
+  fileId: string,
+  baseUrlOrOptions?: string | RequestOptions,
+  extraOptions?: RequestOptions
+): Promise<DownloadFileResult> {
+  return defaultClient.downloadFile(fileId, resolveOptions(baseUrlOrOptions, extraOptions));
 }
 
 /**

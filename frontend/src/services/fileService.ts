@@ -10,8 +10,9 @@
  */
 
 import { apiService } from './apiService.ts';
+import { ApiClientError } from '../api/client.ts';
 import type { FileInfo, FilesResponse, UploadFileResponse, UploadProgressCallback } from '../types/api.ts';
-import type { UploadState } from '../types/components.ts';
+import type { UploadState, DownloadState } from '../types/components.ts';
 
 export interface FileServiceResult {
   files: FileInfo[];
@@ -22,6 +23,7 @@ export interface FileServiceResult {
   error: string | null;
   searchQuery: string;
   uploadState: UploadState | null;
+  downloadState: DownloadState | null;
 }
 
 export type FileServiceListener = (result: FileServiceResult) => void;
@@ -40,6 +42,7 @@ export class FileService {
   private lastTimestamp = Date.now();
   private searchQuery = '';
   private uploadState: UploadState | null = null;
+  private downloadState: DownloadState | null = null;
 
   private listeners: Set<FileServiceListener> = new Set();
   private timerId: ReturnType<typeof setTimeout> | null = null;
@@ -213,6 +216,74 @@ export class FileService {
   }
 
   /**
+   * Downloads a file replica and triggers native browser save dialog.
+   */
+  public async downloadFile(fileId: string, filename?: string): Promise<void> {
+    this.downloadState = {
+      isDownloading: true,
+      fileId,
+      filename,
+      error: null,
+    };
+    this.notifyListeners(this.getResult());
+
+    try {
+      const { blob, filename: resolvedFilename } = await apiService.downloadFile(fileId);
+      const downloadName = resolvedFilename || filename || fileId;
+
+      // Trigger native browser download if window & document are available
+      if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = downloadName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+
+        // Revoke after a short tick
+        setTimeout(() => {
+          URL.revokeObjectURL(objectUrl);
+        }, 1000);
+      }
+
+      this.downloadState = null;
+      this.notifyListeners(this.getResult());
+    } catch (err: unknown) {
+      let errorMsg = 'Download failed: replica unavailable';
+      if (err instanceof ApiClientError && err.errorData?.detail) {
+        errorMsg = err.errorData.detail;
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+
+      this.downloadState = {
+        isDownloading: false,
+        fileId,
+        filename,
+        error: errorMsg,
+      };
+      this.notifyListeners(this.getResult());
+      throw err;
+    }
+  }
+
+  /**
+   * Dismiss current download error banner.
+   */
+  public dismissDownloadError(): void {
+    if (this.downloadState?.error) {
+      this.downloadState = null;
+      this.notifyListeners(this.getResult());
+    }
+  }
+
+  public getDownloadState(): DownloadState | null {
+    return this.downloadState;
+  }
+
+  /**
    * Starts periodic polling loop for files ledger.
    */
   public startPolling(config: FilePollingConfig | number = 3000): void {
@@ -277,6 +348,7 @@ export class FileService {
       error: this.lastError,
       searchQuery: this.searchQuery,
       uploadState: this.uploadState,
+      downloadState: this.downloadState,
     };
   }
 
@@ -295,6 +367,7 @@ export class FileService {
     this.totalSizeBytes = 0;
     this.searchQuery = '';
     this.uploadState = null;
+    this.downloadState = null;
     this.reachable = false;
     this.lastError = null;
     this.listeners.clear();

@@ -46,6 +46,13 @@ export interface UploadState {
   lastFailedFile?: File | null;
 }
 
+export interface DownloadState {
+  isDownloading: boolean;
+  fileId?: string;
+  filename?: string;
+  error?: string | null;
+}
+
 export interface FilePanelProps {
   files?: FileInfo[];
   state?: ViewState;
@@ -54,8 +61,10 @@ export interface FilePanelProps {
   totalSizeBytes?: number;
   isLoading?: boolean;
   uploadState?: UploadState | null;
+  downloadState?: DownloadState | null;
   searchQuery?: string;
   onUpload?: (file: File) => void;
+  onDownload?: (fileId: string, filename?: string) => void;
   onSync?: () => void;
 }
 
