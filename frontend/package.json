@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "tsx src/__tests__/client.test.ts && tsx src/__tests__/tokens.test.ts && tsx src/__tests__/layout.test.ts && tsx src/__tests__/services.test.ts && tsx src/__tests__/states.test.ts && tsx src/__tests__/nodeDetail.test.ts && tsx src/__tests__/files.test.ts && tsx src/__tests__/fileUpload.test.ts",
+    "test": "tsx src/__tests__/client.test.ts && tsx src/__tests__/tokens.test.ts && tsx src/__tests__/layout.test.ts && tsx src/__tests__/services.test.ts && tsx src/__tests__/states.test.ts && tsx src/__tests__/nodeDetail.test.ts && tsx src/__tests__/files.test.ts && tsx src/__tests__/fileUpload.test.ts && tsx src/__tests__/fileDownload.test.ts && tsx src/__tests__/fileDelete.test.ts",
     "test:tokens": "tsx src/__tests__/tokens.test.ts",
     "test:client": "tsx src/__tests__/client.test.ts",
     "test:layout": "tsx src/__tests__/layout.test.ts",
@@ -16,7 +16,9 @@
     "test:states": "tsx src/__tests__/states.test.ts",
     "test:node-detail": "tsx src/__tests__/nodeDetail.test.ts",
     "test:files": "tsx src/__tests__/files.test.ts",
-    "test:file-upload": "tsx src/__tests__/fileUpload.test.ts"
+    "test:file-upload": "tsx src/__tests__/fileUpload.test.ts",
+    "test:file-download": "tsx src/__tests__/fileDownload.test.ts",
+    "test:file-delete": "tsx src/__tests__/fileDelete.test.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

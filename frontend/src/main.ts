@@ -334,6 +334,66 @@ function attachFilePanelListeners(): void {
       fileService.dismissUploadError();
       return;
     }
+
+    // Trigger file download
+    const downloadBtn = target.closest<HTMLElement>('.btn-download-file');
+    if (downloadBtn) {
+      e.preventDefault();
+      const fileId = downloadBtn.dataset.fileId;
+      const filename = downloadBtn.dataset.filename;
+      if (fileId) {
+        void fileService.downloadFile(fileId, filename).catch(() => {
+          // Handled and displayed via fileService downloadState
+        });
+      }
+      return;
+    }
+
+    // Dismiss download error
+    if (target.closest('#btn-dismiss-download-error')) {
+      e.preventDefault();
+      fileService.dismissDownloadError();
+      return;
+    }
+
+    // Step 1: Prompt for deletion confirmation
+    const deleteBtn = target.closest<HTMLElement>('.btn-delete-file');
+    if (deleteBtn) {
+      e.preventDefault();
+      const fileId = deleteBtn.dataset.fileId;
+      if (fileId) {
+        fileService.setConfirmingDelete(fileId);
+      }
+      return;
+    }
+
+    // Step 2a: Cancel deletion confirmation
+    const cancelDeleteBtn = target.closest<HTMLElement>('.btn-cancel-delete');
+    if (cancelDeleteBtn) {
+      e.preventDefault();
+      fileService.setConfirmingDelete(null);
+      return;
+    }
+
+    // Step 2b: Explicitly confirm deletion (disappears immediately on success, restores on error)
+    const confirmDeleteBtn = target.closest<HTMLElement>('.btn-confirm-delete');
+    if (confirmDeleteBtn) {
+      e.preventDefault();
+      const fileId = confirmDeleteBtn.dataset.fileId;
+      if (fileId) {
+        void fileService.deleteFile(fileId).catch(() => {
+          // Handled and restored via fileService deleteState
+        });
+      }
+      return;
+    }
+
+    // Dismiss delete error
+    if (target.closest('#btn-dismiss-delete-error')) {
+      e.preventDefault();
+      fileService.dismissDeleteError();
+      return;
+    }
   });
 
   // Drag and drop event listeners for file replication
@@ -439,7 +499,9 @@ function renderDashboard(): void {
           currentFiles.totalFiles,
           currentFiles.totalSizeBytes,
           currentFiles.searchQuery,
-          currentFiles.uploadState
+          currentFiles.uploadState,
+          currentFiles.downloadState,
+          currentFiles.deleteState
         )}
       </div>
     </div>
@@ -533,7 +595,15 @@ function init(): void {
   // Subscribe to file ledger updates for Zone 3 live synchronization
   fileService.subscribe((result) => {
     if (currentViewState !== 'normal') return;
-    updateFilePanelDOM(result.files, result.totalFiles, result.totalSizeBytes, result.searchQuery, result.uploadState);
+    updateFilePanelDOM(
+      result.files,
+      result.totalFiles,
+      result.totalSizeBytes,
+      result.searchQuery,
+      result.uploadState,
+      result.downloadState,
+      result.deleteState
+    );
   });
 
   // Start routing, health checking, cluster status polling, heartbeat pulse engine, and file ledger polling

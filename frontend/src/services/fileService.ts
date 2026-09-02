@@ -10,8 +10,9 @@
  */
 
 import { apiService } from './apiService.ts';
+import { ApiClientError } from '../api/client.ts';
 import type { FileInfo, FilesResponse, UploadFileResponse, UploadProgressCallback } from '../types/api.ts';
-import type { UploadState } from '../types/components.ts';
+import type { UploadState, DownloadState, DeleteState } from '../types/components.ts';
 
 export interface FileServiceResult {
   files: FileInfo[];
@@ -22,6 +23,8 @@ export interface FileServiceResult {
   error: string | null;
   searchQuery: string;
   uploadState: UploadState | null;
+  downloadState: DownloadState | null;
+  deleteState: DeleteState | null;
 }
 
 export type FileServiceListener = (result: FileServiceResult) => void;
@@ -40,6 +43,8 @@ export class FileService {
   private lastTimestamp = Date.now();
   private searchQuery = '';
   private uploadState: UploadState | null = null;
+  private downloadState: DownloadState | null = null;
+  private deleteState: DeleteState | null = null;
 
   private listeners: Set<FileServiceListener> = new Set();
   private timerId: ReturnType<typeof setTimeout> | null = null;
@@ -213,6 +218,150 @@ export class FileService {
   }
 
   /**
+   * Downloads a file replica and triggers native browser save dialog.
+   */
+  public async downloadFile(fileId: string, filename?: string): Promise<void> {
+    this.downloadState = {
+      isDownloading: true,
+      fileId,
+      filename,
+      error: null,
+    };
+    this.notifyListeners(this.getResult());
+
+    try {
+      const { blob, filename: resolvedFilename } = await apiService.downloadFile(fileId);
+      const downloadName = resolvedFilename || filename || fileId;
+
+      // Trigger native browser download if window & document are available
+      if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = downloadName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+
+        // Revoke after a short tick
+        setTimeout(() => {
+          URL.revokeObjectURL(objectUrl);
+        }, 1000);
+      }
+
+      this.downloadState = null;
+      this.notifyListeners(this.getResult());
+    } catch (err: unknown) {
+      let errorMsg = 'Download failed: replica unavailable';
+      if (err instanceof ApiClientError && err.errorData?.detail) {
+        errorMsg = err.errorData.detail;
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+
+      this.downloadState = {
+        isDownloading: false,
+        fileId,
+        filename,
+        error: errorMsg,
+      };
+      this.notifyListeners(this.getResult());
+      throw err;
+    }
+  }
+
+  /**
+   * Dismiss current download error banner.
+   */
+  public dismissDownloadError(): void {
+    if (this.downloadState?.error) {
+      this.downloadState = null;
+      this.notifyListeners(this.getResult());
+    }
+  }
+
+  public getDownloadState(): DownloadState | null {
+    return this.downloadState;
+  }
+
+  /**
+   * Sets the file currently prompting for deletion confirmation.
+   */
+  public setConfirmingDelete(fileId: string | null): void {
+    this.deleteState = fileId ? { confirmingFileId: fileId, isDeleting: false, error: null } : null;
+    this.notifyListeners(this.getResult());
+  }
+
+  /**
+   * Dismiss current delete error banner.
+   */
+  public dismissDeleteError(): void {
+    if (this.deleteState?.error) {
+      this.deleteState = null;
+      this.notifyListeners(this.getResult());
+    }
+  }
+
+  public getDeleteState(): DeleteState | null {
+    return this.deleteState;
+  }
+
+  /**
+   * Deletes a file replica with immediate optimistic removal and failure rollback.
+   */
+  public async deleteFile(fileId: string): Promise<void> {
+    const fileIndex = this.files.findIndex(f => f.file_id === fileId || f.name === fileId);
+    const fileToRestore = fileIndex !== -1 ? this.files[fileIndex] : null;
+
+    // Optimistically remove the file so it disappears immediately from the UI
+    if (fileToRestore) {
+      this.files = this.files.filter((_, idx) => idx !== fileIndex);
+      this.totalFiles = Math.max(0, this.totalFiles - 1);
+      this.totalSizeBytes = Math.max(0, this.totalSizeBytes - (fileToRestore.size || 0));
+    }
+
+    this.deleteState = {
+      confirmingFileId: null,
+      isDeleting: true,
+      fileId,
+      error: null,
+    };
+    this.notifyListeners(this.getResult());
+
+    try {
+      await apiService.deleteFile(fileId);
+      this.deleteState = null;
+      this.notifyListeners(this.getResult());
+      // Re-fetch to guarantee ledger synchronization with server
+      void this.refreshFiles();
+    } catch (err: unknown) {
+      // Rollback: restore the file row to its previous position on failure
+      if (fileToRestore) {
+        this.files.splice(fileIndex, 0, fileToRestore);
+        this.totalFiles += 1;
+        this.totalSizeBytes += (fileToRestore.size || 0);
+      }
+
+      let errorMsg = 'Failed to delete file from cluster';
+      if (err instanceof ApiClientError && err.errorData?.detail) {
+        errorMsg = err.errorData.detail;
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+
+      this.deleteState = {
+        confirmingFileId: null,
+        isDeleting: false,
+        fileId,
+        error: errorMsg,
+      };
+      this.notifyListeners(this.getResult());
+      throw err;
+    }
+  }
+
+  /**
    * Starts periodic polling loop for files ledger.
    */
   public startPolling(config: FilePollingConfig | number = 3000): void {
@@ -277,6 +426,8 @@ export class FileService {
       error: this.lastError,
       searchQuery: this.searchQuery,
       uploadState: this.uploadState,
+      downloadState: this.downloadState,
+      deleteState: this.deleteState,
     };
   }
 
@@ -295,6 +446,8 @@ export class FileService {
     this.totalSizeBytes = 0;
     this.searchQuery = '';
     this.uploadState = null;
+    this.downloadState = null;
+    this.deleteState = null;
     this.reachable = false;
     this.lastError = null;
     this.listeners.clear();

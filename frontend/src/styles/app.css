@@ -489,6 +489,139 @@
   background-color: var(--color-surface-hover);
 }
 
+/* Download Error Card */
+.download-error-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-down-border);
+  padding: var(--space-2-5) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: 0px;
+}
+
+.download-error-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.download-error-message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.download-error-actions {
+  display: flex;
+  gap: var(--space-1-5);
+  flex-shrink: 0;
+}
+
+/* Table File Action Button & Groups */
+.file-action-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.confirm-delete-group {
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.confirm-delete-prompt {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  color: var(--color-warn);
+  font-weight: var(--font-weight-medium);
+  margin-right: 2px;
+}
+
+.btn-file-action {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  padding: 2px 8px;
+  background-color: var(--color-surface-subtle);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+  border-radius: 0px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-file-action:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-line-bright);
+  color: var(--color-ink);
+}
+
+.btn-file-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-delete-file:hover:not(:disabled) {
+  border-color: var(--color-down-border);
+  color: var(--color-down);
+}
+
+.btn-confirm-delete {
+  background-color: var(--color-down-subtle);
+  border-color: var(--color-down-border);
+  color: var(--color-down);
+  font-weight: var(--font-weight-medium);
+}
+
+.btn-confirm-delete:hover:not(:disabled) {
+  background-color: var(--color-down-border);
+  color: var(--color-ink);
+}
+
+.btn-cancel-delete {
+  color: var(--color-muted);
+}
+
+.btn-cancel-delete:hover:not(:disabled) {
+  color: var(--color-ink);
+  border-color: var(--color-line-bright);
+}
+
+/* Delete Error Card */
+.delete-error-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-down-border);
+  padding: var(--space-2-5) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: 0px;
+}
+
+.delete-error-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.delete-error-message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.delete-error-actions {
+  display: flex;
+  gap: var(--space-1-5);
+  flex-shrink: 0;
+}
+
 /* ==========================================================================
    6. RESPONSIVE BREAKPOINTS (1280PX DESKTOP & 375PX MOBILE)
    ========================================================================== */

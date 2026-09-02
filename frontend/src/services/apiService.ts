@@ -13,6 +13,8 @@ import type {
   NodesResponse,
   NodeDetailResponse,
   FilesResponse,
+  DownloadFileResult,
+  DeleteFileResponse,
   UploadFileResponse,
   UploadOptions,
   ClientConfig,
@@ -66,6 +68,14 @@ class ApiService {
 
   public async getFiles(options?: RequestOptions): Promise<FilesResponse> {
     return this.client.getFiles(options);
+  }
+
+  public async downloadFile(fileId: string, options?: RequestOptions): Promise<DownloadFileResult> {
+    return this.client.downloadFile(fileId, options);
+  }
+
+  public async deleteFile(fileId: string, options?: RequestOptions): Promise<DeleteFileResponse> {
+    return this.client.deleteFile(fileId, options);
   }
 
   public async uploadFile(
