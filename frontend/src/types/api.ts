@@ -121,6 +121,12 @@ export interface DownloadFileResult {
   filename: string;
 }
 
+export interface DeleteFileResponse {
+  message: string;
+  filename: string;
+  file_id: string;
+}
+
 /**
  * Upload progress callback signature.
  */
@@ -141,6 +147,7 @@ export interface RequestOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  method?: string;
 }
 
 /**

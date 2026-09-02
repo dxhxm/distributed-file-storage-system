@@ -355,6 +355,45 @@ function attachFilePanelListeners(): void {
       fileService.dismissDownloadError();
       return;
     }
+
+    // Step 1: Prompt for deletion confirmation
+    const deleteBtn = target.closest<HTMLElement>('.btn-delete-file');
+    if (deleteBtn) {
+      e.preventDefault();
+      const fileId = deleteBtn.dataset.fileId;
+      if (fileId) {
+        fileService.setConfirmingDelete(fileId);
+      }
+      return;
+    }
+
+    // Step 2a: Cancel deletion confirmation
+    const cancelDeleteBtn = target.closest<HTMLElement>('.btn-cancel-delete');
+    if (cancelDeleteBtn) {
+      e.preventDefault();
+      fileService.setConfirmingDelete(null);
+      return;
+    }
+
+    // Step 2b: Explicitly confirm deletion (disappears immediately on success, restores on error)
+    const confirmDeleteBtn = target.closest<HTMLElement>('.btn-confirm-delete');
+    if (confirmDeleteBtn) {
+      e.preventDefault();
+      const fileId = confirmDeleteBtn.dataset.fileId;
+      if (fileId) {
+        void fileService.deleteFile(fileId).catch(() => {
+          // Handled and restored via fileService deleteState
+        });
+      }
+      return;
+    }
+
+    // Dismiss delete error
+    if (target.closest('#btn-dismiss-delete-error')) {
+      e.preventDefault();
+      fileService.dismissDeleteError();
+      return;
+    }
   });
 
   // Drag and drop event listeners for file replication
@@ -461,7 +500,8 @@ function renderDashboard(): void {
           currentFiles.totalSizeBytes,
           currentFiles.searchQuery,
           currentFiles.uploadState,
-          currentFiles.downloadState
+          currentFiles.downloadState,
+          currentFiles.deleteState
         )}
       </div>
     </div>
@@ -561,7 +601,8 @@ function init(): void {
       result.totalSizeBytes,
       result.searchQuery,
       result.uploadState,
-      result.downloadState
+      result.downloadState,
+      result.deleteState
     );
   });
 

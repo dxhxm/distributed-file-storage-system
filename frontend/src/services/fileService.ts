@@ -12,7 +12,7 @@
 import { apiService } from './apiService.ts';
 import { ApiClientError } from '../api/client.ts';
 import type { FileInfo, FilesResponse, UploadFileResponse, UploadProgressCallback } from '../types/api.ts';
-import type { UploadState, DownloadState } from '../types/components.ts';
+import type { UploadState, DownloadState, DeleteState } from '../types/components.ts';
 
 export interface FileServiceResult {
   files: FileInfo[];
@@ -24,6 +24,7 @@ export interface FileServiceResult {
   searchQuery: string;
   uploadState: UploadState | null;
   downloadState: DownloadState | null;
+  deleteState: DeleteState | null;
 }
 
 export type FileServiceListener = (result: FileServiceResult) => void;
@@ -43,6 +44,7 @@ export class FileService {
   private searchQuery = '';
   private uploadState: UploadState | null = null;
   private downloadState: DownloadState | null = null;
+  private deleteState: DeleteState | null = null;
 
   private listeners: Set<FileServiceListener> = new Set();
   private timerId: ReturnType<typeof setTimeout> | null = null;
@@ -284,6 +286,82 @@ export class FileService {
   }
 
   /**
+   * Sets the file currently prompting for deletion confirmation.
+   */
+  public setConfirmingDelete(fileId: string | null): void {
+    this.deleteState = fileId ? { confirmingFileId: fileId, isDeleting: false, error: null } : null;
+    this.notifyListeners(this.getResult());
+  }
+
+  /**
+   * Dismiss current delete error banner.
+   */
+  public dismissDeleteError(): void {
+    if (this.deleteState?.error) {
+      this.deleteState = null;
+      this.notifyListeners(this.getResult());
+    }
+  }
+
+  public getDeleteState(): DeleteState | null {
+    return this.deleteState;
+  }
+
+  /**
+   * Deletes a file replica with immediate optimistic removal and failure rollback.
+   */
+  public async deleteFile(fileId: string): Promise<void> {
+    const fileIndex = this.files.findIndex(f => f.file_id === fileId || f.name === fileId);
+    const fileToRestore = fileIndex !== -1 ? this.files[fileIndex] : null;
+
+    // Optimistically remove the file so it disappears immediately from the UI
+    if (fileToRestore) {
+      this.files = this.files.filter((_, idx) => idx !== fileIndex);
+      this.totalFiles = Math.max(0, this.totalFiles - 1);
+      this.totalSizeBytes = Math.max(0, this.totalSizeBytes - (fileToRestore.size || 0));
+    }
+
+    this.deleteState = {
+      confirmingFileId: null,
+      isDeleting: true,
+      fileId,
+      error: null,
+    };
+    this.notifyListeners(this.getResult());
+
+    try {
+      await apiService.deleteFile(fileId);
+      this.deleteState = null;
+      this.notifyListeners(this.getResult());
+      // Re-fetch to guarantee ledger synchronization with server
+      void this.refreshFiles();
+    } catch (err: unknown) {
+      // Rollback: restore the file row to its previous position on failure
+      if (fileToRestore) {
+        this.files.splice(fileIndex, 0, fileToRestore);
+        this.totalFiles += 1;
+        this.totalSizeBytes += (fileToRestore.size || 0);
+      }
+
+      let errorMsg = 'Failed to delete file from cluster';
+      if (err instanceof ApiClientError && err.errorData?.detail) {
+        errorMsg = err.errorData.detail;
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+
+      this.deleteState = {
+        confirmingFileId: null,
+        isDeleting: false,
+        fileId,
+        error: errorMsg,
+      };
+      this.notifyListeners(this.getResult());
+      throw err;
+    }
+  }
+
+  /**
    * Starts periodic polling loop for files ledger.
    */
   public startPolling(config: FilePollingConfig | number = 3000): void {
@@ -349,6 +427,7 @@ export class FileService {
       searchQuery: this.searchQuery,
       uploadState: this.uploadState,
       downloadState: this.downloadState,
+      deleteState: this.deleteState,
     };
   }
 
@@ -368,6 +447,7 @@ export class FileService {
     this.searchQuery = '';
     this.uploadState = null;
     this.downloadState = null;
+    this.deleteState = null;
     this.reachable = false;
     this.lastError = null;
     this.listeners.clear();

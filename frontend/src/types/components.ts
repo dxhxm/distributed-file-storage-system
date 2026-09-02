@@ -53,6 +53,13 @@ export interface DownloadState {
   error?: string | null;
 }
 
+export interface DeleteState {
+  confirmingFileId?: string | null;
+  isDeleting?: boolean;
+  fileId?: string;
+  error?: string | null;
+}
+
 export interface FilePanelProps {
   files?: FileInfo[];
   state?: ViewState;
@@ -62,9 +69,11 @@ export interface FilePanelProps {
   isLoading?: boolean;
   uploadState?: UploadState | null;
   downloadState?: DownloadState | null;
+  deleteState?: DeleteState | null;
   searchQuery?: string;
   onUpload?: (file: File) => void;
   onDownload?: (fileId: string, filename?: string) => void;
+  onDelete?: (fileId: string) => void;
   onSync?: () => void;
 }
 

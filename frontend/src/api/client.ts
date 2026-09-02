@@ -10,6 +10,7 @@ import type {
   NodeDetailResponse,
   FilesResponse,
   DownloadFileResult,
+  DeleteFileResponse,
   UploadFileResponse,
   UploadOptions,
   RequestOptions,
@@ -85,7 +86,7 @@ export class DistributedStorageClient {
 
     try {
       const response = await this.fetchImpl(url, {
-        method: 'GET',
+        method: options.method ?? 'GET',
         headers: {
           Accept: 'application/json',
           ...options.headers,
@@ -242,6 +243,17 @@ export class DistributedStorageClient {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  /**
+   * DELETE /files/{file_id}
+   * Deletes a file replica cluster-wide with explicit error reporting.
+   */
+  public async deleteFile(fileId: string, options: RequestOptions = {}): Promise<DeleteFileResponse> {
+    return this.request<DeleteFileResponse>(`/files/${encodeURIComponent(fileId)}`, {
+      ...options,
+      method: 'DELETE',
+    });
   }
 
   /**
@@ -492,4 +504,24 @@ export async function uploadFile(
   options?: UploadOptions
 ): Promise<UploadFileResponse> {
   return defaultClient.uploadFile(file, filenameOrOptions, options);
+}
+
+/**
+ * DELETE /files/{file_id}
+ */
+export async function deleteFile(
+  fileId: string,
+  options?: RequestOptions
+): Promise<DeleteFileResponse>;
+export async function deleteFile(
+  fileId: string,
+  baseUrl: string,
+  options?: RequestOptions
+): Promise<DeleteFileResponse>;
+export async function deleteFile(
+  fileId: string,
+  baseUrlOrOptions?: string | RequestOptions,
+  extraOptions?: RequestOptions
+): Promise<DeleteFileResponse> {
+  return defaultClient.deleteFile(fileId, resolveOptions(baseUrlOrOptions, extraOptions));
 }

@@ -14,6 +14,7 @@ import type {
   NodeDetailResponse,
   FilesResponse,
   DownloadFileResult,
+  DeleteFileResponse,
   UploadFileResponse,
   UploadOptions,
   ClientConfig,
@@ -71,6 +72,10 @@ class ApiService {
 
   public async downloadFile(fileId: string, options?: RequestOptions): Promise<DownloadFileResult> {
     return this.client.downloadFile(fileId, options);
+  }
+
+  public async deleteFile(fileId: string, options?: RequestOptions): Promise<DeleteFileResponse> {
+    return this.client.deleteFile(fileId, options);
   }
 
   public async uploadFile(
