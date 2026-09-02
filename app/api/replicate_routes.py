@@ -88,6 +88,81 @@ async def download_file(file_id: str):
     )
 
 
+@router.delete("/files/{file_id}")
+async def delete_file(file_id: str):
+    """Delete a file and remove its replicas across all cluster nodes."""
+    storage_dir = os.environ.get("STORAGE_DIR", STORAGE_DIR)
+    os.makedirs(storage_dir, exist_ok=True)
+
+    # Base node storage mappings for local replica detection
+    node_storage_paths = {
+        "Node A": os.path.join(os.getcwd(), "nodes", "Node1", "Storage"),
+        "Node B": os.path.join(os.getcwd(), "nodes", "Node2", "Storage"),
+        "Node C": os.path.join(os.getcwd(), "nodes", "Node3", "Storage"),
+    }
+
+    # 1. Resolve target filename from file_id
+    target_filename = None
+    all_candidate_dirs = [storage_dir] + list(node_storage_paths.values())
+    for d in all_candidate_dirs:
+        if os.path.exists(d):
+            for fname in os.listdir(d):
+                if not fname.startswith(".") and os.path.isfile(os.path.join(d, fname)):
+                    computed_id = f"file-{hashlib.md5(fname.encode()).hexdigest()[:8]}"
+                    if file_id == computed_id or file_id == fname:
+                        target_filename = fname
+                        break
+        if target_filename:
+            break
+
+    if not target_filename:
+        target_filename = file_id
+
+    # 2. Check if the file exists in any storage location and delete
+    deleted_any = False
+
+    # Remove from current node local storage
+    local_path = os.path.join(storage_dir, target_filename)
+    if os.path.exists(local_path) and os.path.isfile(local_path):
+        try:
+            os.remove(local_path)
+            deleted_any = True
+        except Exception:
+            pass
+
+    # Remove from peer node storage paths directly
+    for _, path in node_storage_paths.items():
+        peer_file = os.path.join(path, target_filename)
+        if os.path.exists(peer_file) and os.path.isfile(peer_file):
+            try:
+                os.remove(peer_file)
+                deleted_any = True
+            except Exception:
+                pass
+
+    # Propagate delete to peer HTTP nodes (for separate process/container runs)
+    for node_url in NODES:
+        if node_url != CURRENT_NODE and is_node_alive(node_url):
+            try:
+                resp = requests.delete(f"{node_url}/files/{target_filename}", timeout=2)
+                if resp.status_code == 200:
+                    deleted_any = True
+            except Exception:
+                pass
+
+    if not deleted_any:
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found: '{target_filename}' does not exist in cluster."
+        )
+
+    return {
+        "message": "File deleted successfully",
+        "filename": target_filename,
+        "file_id": file_id
+    }
+
+
 @router.get("/files")
 async def list_files():
     """List all stored files with replica distribution, size, and health status."""
