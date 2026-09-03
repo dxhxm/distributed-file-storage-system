@@ -345,16 +345,72 @@
 .replica-pill {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  padding: 1px 4px;
+  padding: 1px 5px;
   background-color: var(--color-surface-subtle);
   border: 1px solid var(--color-line-subtle);
-  color: var(--color-ink-secondary);
+  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
 }
 
 .replica-pill.active {
   border-color: var(--color-ok-border);
   color: var(--color-ok);
   background-color: var(--color-ok-bg);
+}
+
+.replica-pill.replica-leader {
+  border-color: var(--color-ok);
+  font-weight: var(--font-weight-semibold);
+}
+
+.replica-pill.replica-offline {
+  border-color: var(--color-down-border);
+  color: var(--color-down);
+  background-color: var(--color-down-bg);
+}
+
+.replica-node-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Zone 3 Cluster Consensus Notice Banner */
+.cluster-notice-banner {
+  border: 1px solid var(--color-line);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: 0px;
+}
+
+.cluster-notice-banner.notice-down {
+  background-color: var(--color-down-bg);
+  border-color: var(--color-down-border);
+}
+
+.cluster-notice-banner.notice-warn {
+  background-color: var(--color-warn-bg);
+  border-color: var(--color-warn-border);
+}
+
+.cluster-notice-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.cluster-notice-text {
+  color: var(--color-ink);
+  line-height: var(--leading-snug);
 }
 
 /* Zone 3 File Dropzone & Drag Overlay */

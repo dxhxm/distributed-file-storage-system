@@ -71,6 +71,8 @@ export interface FilePanelProps {
   downloadState?: DownloadState | null;
   deleteState?: DeleteState | null;
   searchQuery?: string;
+  nodes?: Array<NodeInfo | { id: string; status: string; state?: string }>;
+  clusterState?: string | null;
   onUpload?: (file: File) => void;
   onDownload?: (fileId: string, filename?: string) => void;
   onDelete?: (fileId: string) => void;
