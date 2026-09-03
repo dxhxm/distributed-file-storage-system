@@ -18,32 +18,136 @@ export function hasReplica(replicas: string[] = [], targetNode: 'A' | 'B' | 'C')
   });
 }
 
+export interface ReplicaNodeInfo {
+  id: string;
+  isOnline: boolean;
+  isLeader: boolean;
+  state: string;
+  status: string;
+}
+
+export function findNodeForTarget(
+  nodes: Array<{ id: string; status?: string; state?: string; displayName?: string }> = [],
+  target: 'A' | 'B' | 'C'
+): ReplicaNodeInfo {
+  const node = nodes.find(n => {
+    const raw = (n.displayName || n.id).toLowerCase().replace(/\s+/g, '').replace(/^node/i, '');
+    if (target === 'A') return raw === 'a' || raw === '1';
+    if (target === 'B') return raw === 'b' || raw === '2';
+    if (target === 'C') return raw === 'c' || raw === '3';
+    return false;
+  });
+
+  const isOnline = node ? (node.status === 'ONLINE') : true;
+  const state = node?.state || (target === 'A' ? 'LEADER' : 'FOLLOWER');
+  const isLeader = state === 'LEADER';
+  const status = node?.status || 'ONLINE';
+
+  return {
+    id: node?.displayName || node?.id || `Node ${target}`,
+    isOnline,
+    isLeader,
+    state,
+    status,
+  };
+}
+
+export function renderClusterNoticeBanner(clusterState?: string | null): string {
+  if (clusterState === 'NO MAJORITY') {
+    return `
+      <div class="cluster-notice-banner notice-down" id="cluster-notice-banner" role="status" aria-live="polite">
+        <div class="cluster-notice-content">
+          <span class="badge badge-down"><span class="status-dot dot-down"></span> CONSENSUS PAUSED</span>
+          <span class="cluster-notice-text font-sans text-xs">
+            <strong>Quorum majority lost (< 2/3 nodes online).</strong> Consensus replication and mutations are paused to prevent split-brain inconsistencies. Existing replicas on active nodes remain downloadable.
+          </span>
+        </div>
+      </div>
+    `;
+  }
+  if (clusterState === 'OPERATIONAL') {
+    return `
+      <div class="cluster-notice-banner notice-warn" id="cluster-notice-banner" role="status" aria-live="polite">
+        <div class="cluster-notice-content">
+          <span class="badge badge-warn"><span class="status-dot dot-warn"></span> QUORUM DEGRADED</span>
+          <span class="cluster-notice-text font-sans text-xs">
+            <strong>1 node offline (2/3 nodes online).</strong> Majority quorum preserved; consensus transactions remain active. Replicas hosted on the offline node are temporarily unreachable.
+          </span>
+        </div>
+      </div>
+    `;
+  }
+  return '';
+}
+
 export function renderFileRow(
   file: FileInfo,
   downloadState?: DownloadState | null,
-  deleteState?: DeleteState | null
+  deleteState?: DeleteState | null,
+  nodes?: Array<{ id: string; status?: string; state?: string; displayName?: string }>,
+  clusterState?: string | null
 ): string {
-  const isReplicated = file.status === 'REPLICATED';
-  const isSyncing = file.status === 'SYNCING';
-  const isDegraded = file.status === 'DEGRADED';
-  const badgeClass = isReplicated ? 'badge-ok' : (isSyncing || isDegraded) ? 'badge-warn' : 'badge-down';
-  const statusText = `${file.status} (${file.replicas.length}/3)`;
+  const nodeA = findNodeForTarget(nodes, 'A');
+  const nodeB = findNodeForTarget(nodes, 'B');
+  const nodeC = findNodeForTarget(nodes, 'C');
 
   const hasA = hasReplica(file.replicas, 'A');
   const hasB = hasReplica(file.replicas, 'B');
   const hasC = hasReplica(file.replicas, 'C');
 
-  const pillA = hasA
-    ? `<span class="replica-pill active" title="Replica stored on Node A">A</span>`
-    : `<span class="replica-pill" style="opacity: 0.35;">-</span>`;
-  const pillB = hasB
-    ? `<span class="replica-pill active" title="Replica stored on Node B">B</span>`
-    : `<span class="replica-pill" style="opacity: 0.35;">-</span>`;
-  const pillC = hasC
-    ? `<span class="replica-pill active" title="Replica stored on Node C">C</span>`
-    : (isSyncing
-      ? `<span class="replica-pill" style="color: var(--color-warn); border-color: var(--color-warn-border);" title="Syncing to Node C">C</span>`
-      : `<span class="replica-pill" style="opacity: 0.35;" title="Missing on Node C">-</span>`);
+  const storedReplicas: Array<{ target: 'A' | 'B' | 'C'; node: ReplicaNodeInfo }> = [];
+  if (hasA) storedReplicas.push({ target: 'A', node: nodeA });
+  if (hasB) storedReplicas.push({ target: 'B', node: nodeB });
+  if (hasC) storedReplicas.push({ target: 'C', node: nodeC });
+
+  const totalStored = storedReplicas.length;
+  const reachableCount = storedReplicas.filter(r => r.node.isOnline).length;
+  const offlineNodes = storedReplicas.filter(r => !r.node.isOnline);
+
+  let badgeClass = 'badge-ok';
+  let statusText = '';
+  let statusTitle = '';
+
+  if (file.status === 'CORRUPTED') {
+    badgeClass = 'badge-down';
+    statusText = `CORRUPTED (${reachableCount}/${totalStored || 3})`;
+    statusTitle = 'Replica checksum mismatch detected';
+  } else if (file.status === 'SYNCING') {
+    badgeClass = 'badge-warn';
+    statusText = `SYNCING (${reachableCount}/3)`;
+    statusTitle = `Replication in progress: ${totalStored}/3 stored, awaiting peer sync`;
+  } else if (reachableCount === 0 && totalStored > 0) {
+    badgeClass = 'badge-down';
+    statusText = `UNREACHABLE (0/${totalStored})`;
+    statusTitle = `All nodes holding replicas (${offlineNodes.map(r => r.node.id).join(', ')}) are OFFLINE`;
+  } else if (offlineNodes.length > 0) {
+    badgeClass = 'badge-warn';
+    statusText = `DEGRADED (${reachableCount}/3)`;
+    statusTitle = `${totalStored}/3 stored cluster-wide, but ${offlineNodes.map(r => r.node.id).join(', ')} is OFFLINE`;
+  } else if (totalStored === 3) {
+    badgeClass = 'badge-ok';
+    statusText = `REPLICATED (3/3)`;
+    statusTitle = 'Target 3x replication factor achieved across active nodes';
+  } else {
+    badgeClass = 'badge-warn';
+    statusText = `${file.status} (${reachableCount}/3)`;
+    statusTitle = `${totalStored} of 3 target replicas exist; ${reachableCount} reachable`;
+  }
+
+  const renderReplicaPill = (target: 'A' | 'B' | 'C', has: boolean, node: ReplicaNodeInfo) => {
+    if (!has) {
+      return `<span class="replica-pill missing" title="Missing on ${node.id} — Target: 3x replication factor" style="opacity: 0.35;">-</span>`;
+    }
+    if (!node.isOnline) {
+      return `<span class="replica-pill replica-offline" title="${node.id} (OFFLINE) — Replica stored but node unreachable"><span class="replica-node-dot dot-down"></span>${target}</span>`;
+    }
+    const leaderClass = node.isLeader ? 'replica-leader' : '';
+    return `<span class="replica-pill active ${leaderClass}" title="${node.id} (${node.state}) — Active replica reachable"><span class="replica-node-dot dot-ok"></span>${target}</span>`;
+  };
+
+  const pillA = renderReplicaPill('A', hasA, nodeA);
+  const pillB = renderReplicaPill('B', hasB, nodeB);
+  const pillC = renderReplicaPill('C', hasC, nodeC);
 
   const timeStr = file.modified_at ? formatTimeUTC(file.modified_at) : '21:40:15 UTC';
   const isDownloading = Boolean(
@@ -59,11 +163,20 @@ export function renderFileRow(
     (deleteState.fileId === file.file_id || deleteState.fileId === file.name)
   );
 
+  const downloadDisabled = isDownloading || isDeletingThisFile || reachableCount === 0;
+  const downloadTooltip = reachableCount === 0 ? 'All replica nodes are offline' : `Download ${file.name}`;
+
+  const isConsensusPaused = clusterState === 'NO MAJORITY';
+  const deleteDisabled = isDownloading || isDeletingThisFile || isConsensusPaused;
+  const deleteTooltip = isConsensusPaused
+    ? 'Mutations paused: Quorum majority lost'
+    : `Delete ${file.name}`;
+
   return `
     <tr class="file-row" id="file-row-${file.file_id || encodeURIComponent(file.name)}">
       <td class="font-mono text-ink">${file.name}</td>
       <td class="font-mono">${formatBytes(file.size)}</td>
-      <td><span class="badge ${badgeClass}">${statusText}</span></td>
+      <td title="${statusTitle}"><span class="badge ${badgeClass}">${statusText}</span></td>
       <td>
         <div class="replica-pills">
           ${pillA}
@@ -101,8 +214,8 @@ export function renderFileRow(
               class="btn-file-action btn-download-file"
               data-file-id="${file.file_id || file.name}"
               data-filename="${file.name}"
-              title="Download ${file.name}"
-              ${isDownloading || isDeletingThisFile ? 'disabled' : ''}
+              title="${downloadTooltip}"
+              ${downloadDisabled ? 'disabled' : ''}
             >
               ${isDownloading ? 'Downloading...' : 'Download'}
             </button>
@@ -111,8 +224,8 @@ export function renderFileRow(
               class="btn-file-action btn-delete-file"
               data-file-id="${file.file_id || file.name}"
               data-filename="${file.name}"
-              title="Delete ${file.name}"
-              ${isDownloading || isDeletingThisFile ? 'disabled' : ''}
+              title="${deleteTooltip}"
+              ${deleteDisabled ? 'disabled' : ''}
             >
               ${isDeletingThisFile ? 'Deleting...' : 'Delete'}
             </button>
@@ -267,11 +380,13 @@ export function renderFilePanelSkeleton(): string {
 export function renderFilePanelEmpty(
   uploadState?: UploadState | null,
   downloadState?: DownloadState | null,
-  deleteState?: DeleteState | null
+  deleteState?: DeleteState | null,
+  clusterState?: string | null
 ): string {
   const uploadHtml = renderUploadProgress(uploadState);
   const downloadHtml = renderDownloadError(downloadState);
   const deleteHtml = renderDeleteError(deleteState);
+  const bannerHtml = renderClusterNoticeBanner(clusterState);
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -281,6 +396,8 @@ export function renderFilePanelEmpty(
         </div>
         <span class="zone-caption">3x Target Replication Factor</span>
       </div>
+
+      ${bannerHtml}
 
       <div class="file-panel-toolbar">
         <div style="display: flex; gap: var(--space-2); flex: 1;">
@@ -367,10 +484,12 @@ export function renderFilePanel(
   searchQuery: string = '',
   uploadState?: UploadState | null,
   downloadState?: DownloadState | null,
-  deleteState?: DeleteState | null
+  deleteState?: DeleteState | null,
+  nodes?: Array<{ id: string; status?: string; state?: string; displayName?: string }>,
+  clusterState?: string | null
 ): string {
   if (viewState === 'loading') return renderFilePanelSkeleton();
-  if (viewState === 'empty') return renderFilePanelEmpty(uploadState, downloadState, deleteState);
+  if (viewState === 'empty') return renderFilePanelEmpty(uploadState, downloadState, deleteState, clusterState);
   if (viewState === 'error') return renderFilePanelError(errorMessage);
 
   const effTotalFiles = totalFiles !== undefined ? totalFiles : files.length;
@@ -388,12 +507,13 @@ export function renderFilePanel(
         </tr>
       `;
     } else {
-      return renderFilePanelEmpty(uploadState, downloadState, deleteState);
+      return renderFilePanelEmpty(uploadState, downloadState, deleteState, clusterState);
     }
   } else {
-    rowsHtml = files.map(file => renderFileRow(file, downloadState, deleteState)).join('');
+    rowsHtml = files.map(file => renderFileRow(file, downloadState, deleteState, nodes, clusterState)).join('');
   }
 
+  const bannerHtml = renderClusterNoticeBanner(clusterState);
   const uploadHtml = renderUploadProgress(uploadState);
   const downloadHtml = renderDownloadError(downloadState);
   const deleteHtml = renderDeleteError(deleteState);
@@ -406,6 +526,10 @@ export function renderFilePanel(
           <span class="zone-count font-mono" id="file-panel-count">(${effTotalFiles} FILES &bull; ${totalSizeFormatted})</span>
         </div>
         <span class="zone-caption">3x Target Replication Factor</span>
+      </div>
+
+      <div id="cluster-notice-slot">
+        ${bannerHtml}
       </div>
 
       <div class="file-panel-toolbar">
@@ -472,17 +596,20 @@ export function updateFilePanelDOM(
   searchQuery: string = '',
   uploadState?: UploadState | null,
   downloadState?: DownloadState | null,
-  deleteState?: DeleteState | null
+  deleteState?: DeleteState | null,
+  nodes?: Array<{ id: string; status?: string; state?: string; displayName?: string }>,
+  clusterState?: string | null
 ): void {
   const tbody = document.getElementById('file-table-tbody');
   const countEl = document.getElementById('file-panel-count');
   const searchInput = document.getElementById('file-search-input') as HTMLInputElement | null;
   const statusSlot = document.getElementById('upload-status-slot');
+  const noticeSlot = document.getElementById('cluster-notice-slot');
 
   if (!tbody || !countEl) {
     const root = document.getElementById('file-panel-root');
     if (root) {
-      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState, downloadState, deleteState);
+      root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState, downloadState, deleteState, nodes, clusterState);
     }
     return;
   }
@@ -494,6 +621,10 @@ export function updateFilePanelDOM(
 
   if (searchInput && searchInput !== document.activeElement && searchInput.value !== searchQuery) {
     searchInput.value = searchQuery;
+  }
+
+  if (noticeSlot) {
+    noticeSlot.innerHTML = renderClusterNoticeBanner(clusterState);
   }
 
   if (statusSlot) {
@@ -524,5 +655,5 @@ export function updateFilePanelDOM(
     return;
   }
 
-  tbody.innerHTML = files.map(file => renderFileRow(file, downloadState, deleteState)).join('');
+  tbody.innerHTML = files.map(file => renderFileRow(file, downloadState, deleteState, nodes, clusterState)).join('');
 }

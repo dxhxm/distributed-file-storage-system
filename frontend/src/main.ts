@@ -501,7 +501,9 @@ function renderDashboard(): void {
           currentFiles.searchQuery,
           currentFiles.uploadState,
           currentFiles.downloadState,
-          currentFiles.deleteState
+          currentFiles.deleteState,
+          currentHeartbeats.nodes,
+          currentCluster.data?.cluster_state
         )}
       </div>
     </div>
@@ -557,6 +559,20 @@ function init(): void {
     const healthResult = healthService.getLastResult();
     const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
+
+    // Keep FilePanel cluster notice banner in sync with live cluster state
+    const currentFiles = fileService.getResult();
+    updateFilePanelDOM(
+      currentFiles.files,
+      currentFiles.totalFiles,
+      currentFiles.totalSizeBytes,
+      currentFiles.searchQuery,
+      currentFiles.uploadState,
+      currentFiles.downloadState,
+      currentFiles.deleteState,
+      heartbeatService.getLastResult().nodes,
+      result.data?.cluster_state
+    );
   });
 
   // Subscribe to heartbeat rail & node telemetry for Zone 1, Zone 2, and open Node Detail Panel live synchronization
@@ -564,6 +580,20 @@ function init(): void {
     if (currentViewState !== 'normal') return;
     updateHeartbeatRailDOM(result.nodes, selectedNodeId);
     updateNodeListDOM(result.nodes, selectedNodeId);
+
+    // Keep FilePanel replica pills synchronized with node health
+    const currentFiles = fileService.getResult();
+    updateFilePanelDOM(
+      currentFiles.files,
+      currentFiles.totalFiles,
+      currentFiles.totalSizeBytes,
+      currentFiles.searchQuery,
+      currentFiles.uploadState,
+      currentFiles.downloadState,
+      currentFiles.deleteState,
+      result.nodes,
+      clusterStatusService.getLastResult().data?.cluster_state
+    );
 
     // If detail panel is open, update its telemetry in real time
     if (selectedNodeId) {
@@ -602,7 +632,9 @@ function init(): void {
       result.searchQuery,
       result.uploadState,
       result.downloadState,
-      result.deleteState
+      result.deleteState,
+      heartbeatService.getLastResult().nodes,
+      clusterStatusService.getLastResult().data?.cluster_state
     );
   });
 

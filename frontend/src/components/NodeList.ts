@@ -55,7 +55,7 @@ export function renderNodeRow(node: NodeInfo | NodeHeartbeatState, selectedNodeI
           <span class="status-dot ${dotClass}"></span> ${node.state}
         </span>
       </td>
-      <td><span class="${isOnline ? 'text-ok' : 'text-down'} font-mono text-xs">${node.status}</span></td>
+      <td title="${isOnline ? 'Node responding to consensus heartbeats' : `Heartbeat missed (>1.5s). Node unresponsive on ${port}. Replicas hosted on this node are temporarily unreachable.`}"><span class="${isOnline ? 'text-ok' : 'text-down'} font-mono text-xs">${node.status}</span></td>
       <td class="font-mono ${isLeader ? 'text-ok' : ''}">${latency}</td>
       <td class="font-mono text-xs text-muted">${timestamp}</td>
       <td class="font-mono text-xs">${port}</td>
@@ -201,7 +201,7 @@ export function renderNodeList(
           <h2 class="zone-title">Cluster Nodes</h2>
           <span class="zone-count font-mono" id="node-list-count">(${onlineCount} ONLINE)</span>
         </div>
-        <span class="zone-caption" id="node-list-caption">${quorumActive ? 'Quorum majority active' : 'Quorum lost'}</span>
+        <span class="zone-caption ${quorumActive ? '' : 'text-down'}" id="node-list-caption">${quorumActive ? 'Quorum majority active' : `Consensus paused — quorum lost (${onlineCount}/3 active)`}</span>
       </div>
 
       <div class="node-table-container">
@@ -255,7 +255,7 @@ export function updateNodeListDOM(
     countEl.textContent = `(${onlineCount} ONLINE)`;
   }
   if (captionEl) {
-    captionEl.textContent = quorumActive ? 'Quorum majority active' : 'Quorum lost';
+    captionEl.textContent = quorumActive ? 'Quorum majority active' : `Consensus paused — quorum lost (${onlineCount}/3 active)`;
     captionEl.className = quorumActive ? 'zone-caption' : 'zone-caption text-down';
   }
 }

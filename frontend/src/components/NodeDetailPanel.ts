@@ -338,12 +338,12 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
             <div class="detail-metric-card">
               <span class="detail-metric-label font-sans">CONNECTIVITY</span>
               <div class="detail-metric-val-row">
-                <span class="badge ${statusBadgeClass}">
+                <span class="badge ${statusBadgeClass}" title="${isOnline ? 'Node responsive and communicating' : 'Node heartbeat timed out (>1.5s missed)'}">
                   <span class="status-dot ${statusDotClass}"></span>
                   <span class="font-mono" id="node-detail-status-val">${nodeStatus}</span>
                 </span>
               </div>
-              <span class="detail-metric-subtext font-sans">${isOnline ? 'Reachable on network' : 'Unreachable / Stalled'}</span>
+              <span class="detail-metric-subtext font-sans">${isOnline ? 'Reachable on network' : 'Unreachable / Stalled (>1.5s missed). Cannot participate in consensus or serve replicas.'}</span>
             </div>
 
             <div class="detail-metric-card">

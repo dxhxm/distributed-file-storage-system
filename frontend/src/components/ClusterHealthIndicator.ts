@@ -21,6 +21,8 @@ export interface HealthIndicatorStyle {
   dotClass: string;
   leaderClass: string;
   displayLeader: string;
+  tooltip: string;
+  explanation: string;
 }
 
 /**
@@ -40,6 +42,8 @@ export function resolveHealthIndicatorStyle(
       dotClass: 'dot-ok',
       leaderClass: hasLeader ? 'text-ok' : 'text-muted',
       displayLeader: leaderId || 'NONE',
+      tooltip: 'Consensus quorum healthy: All nodes responding and log replication active.',
+      explanation: 'Quorum Healthy',
     };
   }
 
@@ -50,6 +54,8 @@ export function resolveHealthIndicatorStyle(
       dotClass: 'dot-warn',
       leaderClass: hasLeader ? 'text-ok' : 'text-muted',
       displayLeader: leaderId || 'NONE',
+      tooltip: 'Quorum Degraded: 1 node offline (2/3 active). Consensus operations continue with remaining failure tolerance 0.',
+      explanation: 'Quorum Degraded (Single fault tolerance remaining)',
     };
   }
 
@@ -60,6 +66,8 @@ export function resolveHealthIndicatorStyle(
       dotClass: 'dot-down',
       leaderClass: 'text-muted',
       displayLeader: leaderId || 'NONE',
+      tooltip: 'Consensus Paused: Quorum majority lost (< 2/3 nodes active). Election and state machine replication paused until peers reconnect. Active nodes serve local reads.',
+      explanation: 'Consensus Paused (Quorum Lost — Not System Down)',
     };
   }
 
@@ -70,6 +78,8 @@ export function resolveHealthIndicatorStyle(
     dotClass: 'dot-down',
     leaderClass: 'text-muted',
     displayLeader: leaderId || 'UNAVAILABLE',
+    tooltip: 'Coordinator Unreachable: Cannot connect to nodeA on port 8000. Ensure node processes are running.',
+    explanation: 'Coordinator Unreachable',
   };
 }
 
@@ -154,7 +164,7 @@ export function renderClusterHealthIndicator(
     <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite">
       <div class="telemetry-item health-status-item">
         <span class="telemetry-label">Status</span>
-        <span class="badge ${style.badgeClass} health-status-badge" id="cluster-state-badge">
+        <span class="badge ${style.badgeClass} health-status-badge" id="cluster-state-badge" title="${style.tooltip}">
           <span class="status-dot ${style.dotClass}" aria-hidden="true"></span>
           <span id="cluster-state-label">${style.clusterState}</span>
         </span>
@@ -164,7 +174,7 @@ export function renderClusterHealthIndicator(
 
       <div class="telemetry-item health-leader-item" id="cluster-leader-group">
         <span class="telemetry-label">Leader</span>
-        <span class="telemetry-value ${style.leaderClass}" id="cluster-leader-val">${style.displayLeader}</span>
+        <span class="telemetry-value ${style.leaderClass}" id="cluster-leader-val" title="${style.displayLeader === 'NONE' ? 'No leader elected while consensus is paused' : `Current Raft Leader: ${style.displayLeader}`}">${style.displayLeader}</span>
       </div>
     </div>
   `;
@@ -192,8 +202,9 @@ export function updateClusterHealthIndicatorDOM(
 
   const style = resolveHealthIndicatorStyle(state, leaderId);
 
-  // Update badge styling classes
+  // Update badge styling classes and tooltip
   badgeEl.className = `badge ${style.badgeClass} health-status-badge`;
+  badgeEl.title = style.tooltip;
   if (labelEl) {
     labelEl.textContent = style.clusterState;
     const dot = badgeEl.querySelector('.status-dot');
@@ -204,8 +215,11 @@ export function updateClusterHealthIndicatorDOM(
     badgeEl.innerHTML = `<span class="status-dot ${style.dotClass}" aria-hidden="true"></span><span id="cluster-state-label">${style.clusterState}</span>`;
   }
 
-  // Update leader element
+  // Update leader element and tooltip
   leaderValEl.className = `telemetry-value ${style.leaderClass}`;
   leaderValEl.textContent = style.displayLeader;
+  leaderValEl.title = style.displayLeader === 'NONE'
+    ? 'No leader elected while consensus is paused'
+    : `Current Raft Leader: ${style.displayLeader}`;
 }
 
