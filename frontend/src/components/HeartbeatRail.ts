@@ -61,7 +61,7 @@ export function renderHeartbeatRailEmpty(): string {
 }
 
 export function renderHeartbeatRailError(errorMsg?: string): string {
-  const message = errorMsg || 'Heartbeat pulse stream disconnected. Coordinator at port 8000 is unreachable.';
+  const message = errorMsg || 'Heartbeat pulse stream disconnected: Coordinator at port 8000 is unreachable.';
   return `
     <div class="heartbeat-rail-card" id="heartbeat-rail" style="border-color: var(--color-down-border);">
       <div class="heartbeat-rail-header">
@@ -113,6 +113,10 @@ export function renderHeartbeatLane(
     ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === displayName)
     : false;
 
+  const laneTitle = isOnline
+    ? `Active Heartbeat Pulse Stream for ${displayName}`
+    : `Pulse Stalled for ${displayName}: Missed heartbeats (>1.5s). Node unresponsive on ${port}.`;
+
   return `
     <div
       class="heartbeat-lane ${stalledClass} ${isSelected ? 'heartbeat-lane-selected' : ''}"
@@ -127,7 +131,7 @@ export function renderHeartbeatLane(
         <span class="text-ink">${displayName}</span>
         <span class="badge ${badgeClass}" style="font-size: 9px; padding: 0 3px;">${badgeText}</span>
       </div>
-      <div class="lane-track" title="Recent Heartbeats for ${displayName}">
+      <div class="lane-track" title="${laneTitle}">
         ${renderTicksHtml(history, isPulsing)}
       </div>
       <div class="lane-meta ${isLeader ? 'text-ok' : isOnline ? '' : 'text-down'}">

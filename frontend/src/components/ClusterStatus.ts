@@ -93,7 +93,7 @@ export function renderClusterStatusEmpty(): string {
 }
 
 export function renderClusterStatusError(errorMsg?: string): string {
-  const message = errorMsg || 'Connection refused to coordinator on port 8000. 0/3 nodes reporting.';
+  const message = errorMsg || 'Coordinator unreachable: Cannot connect to nodeA HTTP API on port 8000. Process may be stopped or port in use.';
   return `
     <div class="cluster-header-strip" id="cluster-header-strip">
       <div class="cluster-title-group">
@@ -106,11 +106,11 @@ export function renderClusterStatusError(errorMsg?: string): string {
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item">
           <span class="telemetry-label">Quorum</span>
-          <span class="telemetry-value text-down">0/3 (NO MAJORITY)</span>
+          <span class="telemetry-value text-down" title="Consensus paused: Quorum majority lost. System is not down; active nodes serve local reads.">0/3 (NO MAJORITY — Consensus Paused)</span>
         </div>
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item" id="backend-connectivity-item">
-          <span class="badge badge-down" title="${message}"><span class="status-dot dot-down"></span> OFFLINE</span>
+          <span class="badge badge-down" title="${message}"><span class="status-dot dot-down"></span> COORDINATOR OFFLINE</span>
         </div>
       </div>
     </div>
@@ -136,7 +136,19 @@ export function renderClusterStatus(
   const totalNodes = status?.total_nodes ?? 3;
 
   const isHealthy = clusterState === 'HEALTHY';
-  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
+  const isPaused = clusterState === 'NO MAJORITY';
+  const isDegraded = clusterState === 'OPERATIONAL';
+  const quorumClass = isHealthy ? 'text-ok' : isDegraded ? 'text-warn' : 'text-down';
+  const quorumDisplay = isPaused
+    ? `${activeNodes}/${totalNodes} (PAUSED)`
+    : isDegraded
+    ? `${activeNodes}/${totalNodes} (DEGRADED)`
+    : `${activeNodes}/${totalNodes}`;
+  const quorumTitle = isPaused
+    ? `Consensus paused: Quorum majority lost (${activeNodes}/${totalNodes} active nodes, requires >= 2). System is not down; local reads permitted.`
+    : isDegraded
+    ? `Quorum degraded: 1 node offline (${activeNodes}/${totalNodes} active nodes). Single fault tolerance remaining.`
+    : `Consensus quorum healthy: All ${activeNodes}/${totalNodes} nodes active and log replication healthy.`;
 
   const connBadge = connectivity === 'CONNECTED'
     ? `<span class="badge badge-ok" title="Backend reached (+${latencyMs}ms)"><span class="status-dot dot-ok"></span> API LIVE</span>`
@@ -172,7 +184,7 @@ export function renderClusterStatus(
 
         <div class="telemetry-item">
           <span class="telemetry-label">Quorum</span>
-          <span class="telemetry-value ${quorumClass}" id="cluster-quorum-val">${activeNodes}/${totalNodes}</span>
+          <span class="telemetry-value ${quorumClass}" id="cluster-quorum-val" title="${quorumTitle}">${quorumDisplay}</span>
         </div>
 
         <div class="telemetry-divider" aria-hidden="true"></div>
@@ -226,13 +238,26 @@ export function updateClusterStatusDOM(
   updateClusterHealthIndicatorDOM(clusterState, leaderId);
 
   const isHealthy = clusterState === 'HEALTHY';
-  const quorumClass = isHealthy ? 'text-ok' : clusterState === 'OPERATIONAL' ? 'text-warn' : 'text-down';
+  const isPaused = clusterState === 'NO MAJORITY';
+  const isDegraded = clusterState === 'OPERATIONAL';
+  const quorumClass = isHealthy ? 'text-ok' : isDegraded ? 'text-warn' : 'text-down';
+  const quorumDisplay = isPaused
+    ? `${activeNodes}/${totalNodes} (PAUSED)`
+    : isDegraded
+    ? `${activeNodes}/${totalNodes} (DEGRADED)`
+    : `${activeNodes}/${totalNodes}`;
+  const quorumTitle = isPaused
+    ? `Consensus paused: Quorum majority lost (${activeNodes}/${totalNodes} active nodes, requires >= 2). System is not down; local reads permitted.`
+    : isDegraded
+    ? `Quorum degraded: 1 node offline (${activeNodes}/${totalNodes} active nodes). Single fault tolerance remaining.`
+    : `Consensus quorum healthy: All ${activeNodes}/${totalNodes} nodes active and log replication healthy.`;
 
   termEl.textContent = `#${term}`;
   commitEl.textContent = `#${commitIndex}`;
 
   quorumEl.className = `telemetry-value ${quorumClass}`;
-  quorumEl.textContent = `${activeNodes}/${totalNodes}`;
+  quorumEl.textContent = quorumDisplay;
+  quorumEl.title = quorumTitle;
 
   if (connEl) {
     const connBadge = connectivity === 'CONNECTED'
