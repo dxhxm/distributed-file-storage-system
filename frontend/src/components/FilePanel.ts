@@ -454,7 +454,7 @@ export function renderFilePanelEmpty(
 }
 
 export function renderFilePanelError(errorMsg?: string): string {
-  const message = errorMsg || 'Unable to retrieve file ledger. Storage replica index unavailable or quorum lost.';
+  const message = errorMsg || 'Unable to retrieve file ledger: Coordinator at port 8000 is unreachable or storage replica index is unavailable.';
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -462,7 +462,7 @@ export function renderFilePanelError(errorMsg?: string): string {
           <h2 class="zone-title">Replicated Storage</h2>
           <span class="zone-count font-mono text-down" id="file-panel-count">(LEDGER OFFLINE)</span>
         </div>
-        <span class="zone-caption text-down">Index query error</span>
+        <span class="zone-caption text-down">Storage index query error</span>
       </div>
 
       <div class="state-panel error-state-panel" id="file-panel-error">
