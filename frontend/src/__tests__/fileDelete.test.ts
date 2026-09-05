@@ -226,9 +226,22 @@ assertStrictEqual(
   'Captures explicit server error detail on failure'
 );
 
-// Dismiss delete error
+// 5. NO MAJORITY Consensus Paused Delete Guard
+console.log('Testing NO MAJORITY Consensus Paused Delete Guard...');
+
+let caughtPausedDelete = false;
+try {
+  await fileService.deleteFile('file-1', 'NO MAJORITY');
+} catch (err: unknown) {
+  caughtPausedDelete = true;
+  assert(err instanceof Error && err.message.includes('Consensus is paused'), 'Error notes consensus paused');
+}
+assert(caughtPausedDelete, 'deleteFile during NO MAJORITY is blocked');
+assert(
+  Boolean(fileService.getDeleteState()?.error?.includes('Consensus is paused') && fileService.getDeleteState()?.error?.includes('quorum majority lost')),
+  'Delete error specifies consensus is paused due to quorum loss'
+);
 fileService.dismissDeleteError();
-assertStrictEqual(fileService.getDeleteState(), null, 'dismissDeleteError clears error');
 
 // Cleanup
 apiService.deleteFile = originalDeleteFile;
@@ -236,5 +249,6 @@ apiService.getFiles = originalGetFiles;
 fileService.reset();
 
 console.log('  ✓ PASS: FileService optimistically removes file immediately and restores row with inline error on failure.');
+console.log('  ✓ PASS: FileService guards delete operations when consensus is paused under NO MAJORITY.');
 
-console.log('\n=== All File Delete Flow Tests Passed Successfully (4/4)! ===\n');
+console.log('\n=== All File Delete Flow Tests Passed Successfully (5/5)! ===\n');

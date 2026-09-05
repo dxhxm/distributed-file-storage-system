@@ -236,10 +236,10 @@ export class DistributedStorageClient {
     } catch (error: unknown) {
       if (error instanceof ApiClientError) throw error;
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url);
+        throw new ApiClientError(`Download timed out after ${timeoutMs}ms`, 408, url);
       }
-      const msg = error instanceof Error ? error.message : 'Unknown network error';
-      throw new ApiClientError(`Network request to ${url} failed: ${msg}`, 0, url);
+      const msg = error instanceof Error ? error.message : 'Connection refused or server offline';
+      throw new ApiClientError(`Download failed: Cannot reach storage node on port 8000 (${msg})`, 0, url);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -306,22 +306,34 @@ export class DistributedStorageClient {
               : { message: 'File uploaded successfully', filename };
             if (opts.onProgress) opts.onProgress(100, file.size, file.size);
             resolve(resp);
-          } else {
             let errorData: ApiErrorResponse | undefined;
             if (xhr.response && typeof xhr.response === 'object') {
               errorData = xhr.response as ApiErrorResponse;
             }
-            const msg = errorData?.detail || errorData?.message || `Upload failed with status ${xhr.status}`;
+            let msg = errorData?.detail || errorData?.message;
+            if (!msg) {
+              if (xhr.status === 503) {
+                msg = 'Cluster consensus paused (HTTP 503 Quorum Lost): Mutations cannot commit without majority consensus';
+              } else if (xhr.status === 413) {
+                msg = 'File exceeds maximum allowed upload size';
+              } else if (xhr.status === 409) {
+                msg = 'File with this name already exists in cluster ledger';
+              } else if (xhr.status === 404) {
+                msg = 'Upload endpoint not found on coordinator';
+              } else {
+                msg = `Upload failed with status ${xhr.status}`;
+              }
+            }
             reject(new ApiClientError(`Request to ${url} failed with status ${xhr.status}: ${msg}`, xhr.status, url, errorData));
           }
         };
 
         xhr.onerror = () => {
-          reject(new ApiClientError(`Network request to ${url} failed during upload`, 0, url));
+          reject(new ApiClientError(`Coordinator unreachable: Cannot connect to HTTP API on port 8000. Connection refused or server offline.`, 0, url));
         };
 
         xhr.ontimeout = () => {
-          reject(new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url));
+          reject(new ApiClientError(`Upload to ${url} timed out after ${timeoutMs}ms`, 408, url));
         };
 
         xhr.send(formData);
@@ -370,10 +382,10 @@ export class DistributedStorageClient {
     } catch (error: unknown) {
       if (error instanceof ApiClientError) throw error;
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiClientError(`Request to ${url} timed out after ${timeoutMs}ms`, 408, url);
+        throw new ApiClientError(`Upload to ${url} timed out after ${timeoutMs}ms`, 408, url);
       }
-      const msg = error instanceof Error ? error.message : 'Unknown network error';
-      throw new ApiClientError(`Network request to ${url} failed: ${msg}`, 0, url);
+      const msg = error instanceof Error ? error.message : 'Connection refused or server offline';
+      throw new ApiClientError(`Coordinator unreachable: Cannot connect to HTTP API on port 8000 (${msg})`, 0, url);
     } finally {
       clearTimeout(timeoutId);
     }

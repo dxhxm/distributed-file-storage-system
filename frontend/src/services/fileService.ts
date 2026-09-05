@@ -123,10 +123,26 @@ export class FileService {
   public async uploadFile(
     file: File | Blob,
     filename?: string,
-    onProgress?: UploadProgressCallback
+    onProgress?: UploadProgressCallback,
+    clusterState?: string | null
   ): Promise<UploadFileResponse> {
     const name = filename || (file instanceof File ? file.name : 'upload.bin');
     const totalBytes = file.size;
+
+    if (clusterState === 'NO MAJORITY') {
+      const errorMsg = 'Upload paused: Cluster consensus is paused (quorum majority lost). File cannot be replicated safely until peer nodes reconnect.';
+      this.uploadState = {
+        isUploading: false,
+        filename: name,
+        percent: 0,
+        loadedBytes: 0,
+        totalBytes,
+        error: errorMsg,
+        lastFailedFile: file instanceof File ? file : null,
+      };
+      this.notifyListeners(this.getResult());
+      throw new Error(errorMsg);
+    }
 
     this.uploadState = {
       isUploading: true,
@@ -177,7 +193,25 @@ export class FileService {
 
       return res;
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Upload failed: coordinator unreachable';
+      let errorMsg = 'Upload failed: coordinator unreachable';
+      if (err instanceof ApiClientError) {
+        if (err.status === 0) {
+          errorMsg = 'Upload failed: Coordinator at http://127.0.0.1:8000 is unreachable. Connection refused or server offline.';
+        } else if (err.status === 503) {
+          errorMsg = err.errorData?.detail || 'Upload paused: Cluster consensus is paused (quorum majority lost). Mutations cannot commit safely until peer nodes reconnect.';
+        } else if (err.status === 413) {
+          errorMsg = err.errorData?.detail || 'Upload failed: File exceeds maximum allowed upload size.';
+        } else if (err.status === 409) {
+          errorMsg = err.errorData?.detail || 'Upload failed: A file with this name already exists in cluster.';
+        } else if (err.errorData?.detail) {
+          errorMsg = err.errorData.detail;
+        } else {
+          errorMsg = `Upload failed with status ${err.status}: ${err.message}`;
+        }
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+
       this.uploadState = {
         isUploading: false,
         filename: name,
@@ -190,6 +224,22 @@ export class FileService {
       this.notifyListeners(this.getResult());
       throw err;
     }
+  }
+
+  /**
+   * Directly sets an upload error without attempting network requests (e.g. drop rejected during NO MAJORITY).
+   */
+  public setUploadError(filename: string, errorMsg: string): void {
+    this.uploadState = {
+      isUploading: false,
+      filename,
+      percent: 0,
+      loadedBytes: 0,
+      totalBytes: 0,
+      error: errorMsg,
+      lastFailedFile: null,
+    };
+    this.notifyListeners(this.getResult());
   }
 
   /**
@@ -254,8 +304,19 @@ export class FileService {
       this.notifyListeners(this.getResult());
     } catch (err: unknown) {
       let errorMsg = 'Download failed: replica unavailable';
-      if (err instanceof ApiClientError && err.errorData?.detail) {
-        errorMsg = err.errorData.detail;
+      const downloadTarget = filename || fileId;
+      if (err instanceof ApiClientError) {
+        if (err.status === 404) {
+          errorMsg = err.errorData?.detail || `Download unavailable: All nodes holding replicas for '${downloadTarget}' are offline or unreachable.`;
+        } else if (err.status === 0) {
+          errorMsg = 'Download failed: Cannot reach storage node on port 8000. Connection refused or server offline.';
+        } else if (err.status === 503) {
+          errorMsg = err.errorData?.detail || 'Download unavailable: Storage node is currently degraded or unreachable.';
+        } else if (err.errorData?.detail) {
+          errorMsg = err.errorData.detail;
+        } else {
+          errorMsg = `Download failed with status ${err.status}: ${err.message}`;
+        }
       } else if (err instanceof Error) {
         errorMsg = err.message;
       }
@@ -310,7 +371,19 @@ export class FileService {
   /**
    * Deletes a file replica with immediate optimistic removal and failure rollback.
    */
-  public async deleteFile(fileId: string): Promise<void> {
+  public async deleteFile(fileId: string, clusterState?: string | null): Promise<void> {
+    if (clusterState === 'NO MAJORITY') {
+      const errorMsg = 'Deletion paused: Consensus is paused (quorum majority lost). Cannot commit file deletion safely without majority quorum.';
+      this.deleteState = {
+        confirmingFileId: null,
+        isDeleting: false,
+        fileId,
+        error: errorMsg,
+      };
+      this.notifyListeners(this.getResult());
+      throw new Error(errorMsg);
+    }
+
     const fileIndex = this.files.findIndex(f => f.file_id === fileId || f.name === fileId);
     const fileToRestore = fileIndex !== -1 ? this.files[fileIndex] : null;
 
@@ -344,8 +417,18 @@ export class FileService {
       }
 
       let errorMsg = 'Failed to delete file from cluster';
-      if (err instanceof ApiClientError && err.errorData?.detail) {
-        errorMsg = err.errorData.detail;
+      if (err instanceof ApiClientError) {
+        if (err.status === 404) {
+          errorMsg = err.errorData?.detail || `File not found: '${fileId}' does not exist in cluster.`;
+        } else if (err.status === 0) {
+          errorMsg = 'Deletion failed: Coordinator at http://127.0.0.1:8000 is unreachable. Connection refused.';
+        } else if (err.status === 503) {
+          errorMsg = err.errorData?.detail || 'Deletion failed: Consensus is paused (quorum majority lost). Cannot commit file deletion safely.';
+        } else if (err.errorData?.detail) {
+          errorMsg = err.errorData.detail;
+        } else {
+          errorMsg = `Deletion failed with status ${err.status}: ${err.message}`;
+        }
       } else if (err instanceof Error) {
         errorMsg = err.message;
       }
