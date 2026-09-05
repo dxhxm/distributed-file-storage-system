@@ -289,7 +289,16 @@ function attachFilePanelListeners(): void {
       const files = fileInput.files;
       if (files && files.length > 0 && files[0]) {
         const fileToUpload = files[0];
-        void fileService.uploadFile(fileToUpload).catch(() => {
+        const currentClusterState = clusterStatusService.getLastResult().data?.cluster_state;
+        if (currentClusterState === 'NO MAJORITY') {
+          fileService.setUploadError(
+            fileToUpload.name,
+            'Upload paused: Cluster consensus is paused (quorum majority lost). File cannot be replicated safely until peer nodes reconnect.'
+          );
+          fileInput.value = '';
+          return;
+        }
+        void fileService.uploadFile(fileToUpload, undefined, undefined, currentClusterState).catch(() => {
           // Handled and displayed via fileService uploadState
         });
         fileInput.value = '';
@@ -305,6 +314,14 @@ function attachFilePanelListeners(): void {
     // Trigger file picker
     if (target.closest('#btn-upload-file') || target.closest('#btn-empty-upload')) {
       e.preventDefault();
+      const currentClusterState = clusterStatusService.getLastResult().data?.cluster_state;
+      if (currentClusterState === 'NO MAJORITY') {
+        fileService.setUploadError(
+          'Upload Selection',
+          'Uploads paused: Cluster consensus is paused (quorum majority lost). Mutations cannot commit safely until peer nodes reconnect.'
+        );
+        return;
+      }
       const fileInput = document.getElementById('file-upload-input') as HTMLInputElement | null;
       if (fileInput) {
         fileInput.click();
@@ -381,7 +398,8 @@ function attachFilePanelListeners(): void {
       e.preventDefault();
       const fileId = confirmDeleteBtn.dataset.fileId;
       if (fileId) {
-        void fileService.deleteFile(fileId).catch(() => {
+        const currentClusterState = clusterStatusService.getLastResult().data?.cluster_state;
+        void fileService.deleteFile(fileId, currentClusterState).catch(() => {
           // Handled and restored via fileService deleteState
         });
       }
@@ -439,7 +457,15 @@ function attachFilePanelListeners(): void {
       e.preventDefault();
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile) {
-        void fileService.uploadFile(droppedFile).catch(() => {
+        const currentClusterState = clusterStatusService.getLastResult().data?.cluster_state;
+        if (currentClusterState === 'NO MAJORITY') {
+          fileService.setUploadError(
+            droppedFile.name,
+            'Upload paused: Cluster consensus is paused (quorum majority lost). File cannot be replicated safely until peer nodes reconnect.'
+          );
+          return;
+        }
+        void fileService.uploadFile(droppedFile, undefined, undefined, currentClusterState).catch(() => {
           // Handled and displayed via fileService uploadState
         });
       }

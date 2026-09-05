@@ -387,6 +387,12 @@ export function renderFilePanelEmpty(
   const downloadHtml = renderDownloadError(downloadState);
   const deleteHtml = renderDeleteError(deleteState);
   const bannerHtml = renderClusterNoticeBanner(clusterState);
+  const isConsensusPaused = clusterState === 'NO MAJORITY';
+  const uploadBtnTitle = isConsensusPaused ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)' : 'Upload file to cluster';
+  const uploadBtnDisabled = isConsensusPaused ? 'disabled' : '';
+  const uploadBtnStyle = isConsensusPaused ? 'opacity: 0.5; cursor: not-allowed;' : 'background-color: var(--color-surface-hover); border-color: var(--color-line-bright);';
+  const dropOverlaySubtitle = isConsensusPaused ? 'Consensus paused: File uploads temporarily paused until quorum restored' : 'Release file to initiate 3x distributed replication';
+
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -412,7 +418,7 @@ export function renderFilePanelEmpty(
         </div>
         <div style="display: flex; gap: var(--space-2);">
           <button type="button" id="btn-trigger-sync" disabled style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Trigger Sync</button>
-          <button type="button" id="btn-upload-file" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
+          <button type="button" id="btn-upload-file" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
         </div>
       </div>
 
@@ -426,8 +432,8 @@ export function renderFilePanelEmpty(
 
       <div class="file-dropzone" id="file-dropzone">
         <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
-          <span class="badge badge-ok"><span class="status-dot dot-ok"></span> DROP TO REPLICATE</span>
-          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">Release file to initiate 3x distributed replication</span>
+          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
+          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">${dropOverlaySubtitle}</span>
         </div>
 
         <div class="state-panel empty-state-panel" id="file-panel-empty">
@@ -439,7 +445,7 @@ export function renderFilePanelEmpty(
             No files stored in cluster. Upload a file above or drag and drop here to initiate 3x distributed replication across online nodes.
           </p>
           <div class="state-action-row">
-            <button type="button" id="btn-empty-upload" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload First File</button>
+            <button type="button" id="btn-empty-upload" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); ${uploadBtnStyle}">Upload First File</button>
           </div>
         </div>
       </div>
@@ -448,7 +454,7 @@ export function renderFilePanelEmpty(
 }
 
 export function renderFilePanelError(errorMsg?: string): string {
-  const message = errorMsg || 'Unable to retrieve file ledger. Storage replica index unavailable or quorum lost.';
+  const message = errorMsg || 'Unable to retrieve file ledger: Coordinator at port 8000 is unreachable or storage replica index is unavailable.';
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -456,7 +462,7 @@ export function renderFilePanelError(errorMsg?: string): string {
           <h2 class="zone-title">Replicated Storage</h2>
           <span class="zone-count font-mono text-down" id="file-panel-count">(LEDGER OFFLINE)</span>
         </div>
-        <span class="zone-caption text-down">Index query error</span>
+        <span class="zone-caption text-down">Storage index query error</span>
       </div>
 
       <div class="state-panel error-state-panel" id="file-panel-error">
@@ -518,6 +524,12 @@ export function renderFilePanel(
   const downloadHtml = renderDownloadError(downloadState);
   const deleteHtml = renderDeleteError(deleteState);
 
+  const isConsensusPaused = clusterState === 'NO MAJORITY';
+  const uploadBtnTitle = isConsensusPaused ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)' : 'Upload file to cluster';
+  const uploadBtnDisabled = isConsensusPaused ? 'disabled' : '';
+  const uploadBtnStyle = isConsensusPaused ? 'opacity: 0.5; cursor: not-allowed;' : 'background-color: var(--color-surface-hover); border-color: var(--color-line-bright);';
+  const dropOverlaySubtitle = isConsensusPaused ? 'Consensus paused: File uploads temporarily paused until quorum restored' : 'Release file to initiate 3x distributed replication';
+
   return `
     <section class="zone-file-panel" id="zone-file-panel" aria-label="Replicated File Inventory">
       <div class="zone-header">
@@ -545,7 +557,7 @@ export function renderFilePanel(
         </div>
         <div style="display: flex; gap: var(--space-2);">
           <button type="button" id="btn-trigger-sync" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
-          <button type="button" id="btn-upload-file" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); background-color: var(--color-surface-hover); border-color: var(--color-line-bright);">Upload File</button>
+          <button type="button" id="btn-upload-file" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
         </div>
       </div>
 
@@ -559,8 +571,8 @@ export function renderFilePanel(
 
       <div class="file-dropzone" id="file-dropzone">
         <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
-          <span class="badge badge-ok"><span class="status-dot dot-ok"></span> DROP TO REPLICATE</span>
-          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">Release file to initiate 3x distributed replication</span>
+          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
+          <span class="font-sans text-xs text-ink" style="margin-top: 4px;">${dropOverlaySubtitle}</span>
         </div>
 
         <div class="file-table-container">
@@ -625,6 +637,17 @@ export function updateFilePanelDOM(
 
   if (noticeSlot) {
     noticeSlot.innerHTML = renderClusterNoticeBanner(clusterState);
+  }
+
+  const uploadBtn = document.getElementById('btn-upload-file') as HTMLButtonElement | null;
+  if (uploadBtn) {
+    const isConsensusPaused = clusterState === 'NO MAJORITY';
+    uploadBtn.disabled = isConsensusPaused;
+    uploadBtn.title = isConsensusPaused
+      ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)'
+      : 'Upload file to cluster';
+    uploadBtn.style.opacity = isConsensusPaused ? '0.5' : '1';
+    uploadBtn.style.cursor = isConsensusPaused ? 'not-allowed' : 'pointer';
   }
 
   if (statusSlot) {

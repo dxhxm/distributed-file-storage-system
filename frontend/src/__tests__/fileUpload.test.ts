@@ -162,4 +162,31 @@ fileService.reset();
 
 console.log('  ✓ PASS: FileService handles upload errors, retention for retry, and user dismissal.');
 
-console.log('\n=== All File Upload & Drag-and-Drop Tests Passed Successfully (5/5)! ===\n');
+// 6. NO MAJORITY Consensus Paused Upload Guard
+console.log('Testing NO MAJORITY Consensus Paused Upload Guard...');
+
+let caughtPausedUpload = false;
+try {
+  await fileService.uploadFile(mockBlob, 'blocked_upload.bin', undefined, 'NO MAJORITY');
+} catch (err: unknown) {
+  caughtPausedUpload = true;
+  assert(err instanceof Error && err.message.includes('Cluster consensus is paused'), 'Error notes consensus paused');
+}
+assert(caughtPausedUpload, 'Upload during NO MAJORITY is blocked');
+const pausedState = fileService.getUploadState();
+assert(
+  Boolean(pausedState?.error?.includes('Cluster consensus is paused') && pausedState?.error?.includes('quorum majority lost')),
+  'Upload error specifies consensus is paused due to quorum loss'
+);
+fileService.dismissUploadError();
+
+// 7. Direct setUploadError Helper (Used by Dropzone under NO MAJORITY)
+fileService.setUploadError('dragged_file.tar', 'Upload paused: Consensus quorum lost');
+const directErrorState = fileService.getUploadState();
+assertStrictEqual(directErrorState?.filename, 'dragged_file.tar', 'Records dragged filename');
+assert(Boolean(directErrorState?.error?.includes('Consensus quorum lost')), 'Records direct error message');
+fileService.dismissUploadError();
+
+console.log('  ✓ PASS: NO MAJORITY consensus paused upload guard and setUploadError validated.');
+
+console.log('\n=== All File Upload & Drag-and-Drop Tests Passed Successfully (6/6)! ===\n');
