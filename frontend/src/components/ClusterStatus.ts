@@ -112,6 +112,12 @@ export function renderClusterStatusError(errorMsg?: string): string {
         <div class="telemetry-item" id="backend-connectivity-item">
           <span class="badge badge-down" title="${message}"><span class="status-dot dot-down"></span> COORDINATOR OFFLINE</span>
         </div>
+        <div class="telemetry-divider" aria-hidden="true"></div>
+        <div class="telemetry-item">
+          <button type="button" id="btn-retry-cluster" class="btn btn-secondary btn-sm" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-down-border); color: var(--color-down);" title="Re-query cluster status from coordinator node on :8000">
+            Re-query Status
+          </button>
+        </div>
       </div>
     </div>
   `;

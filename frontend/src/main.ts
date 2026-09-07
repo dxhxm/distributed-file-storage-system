@@ -134,7 +134,42 @@ function attachInteractiveNodeSelection(): void {
       selectedNodeDetail = null;
       renderDashboard();
       void healthService.checkHealth();
+      void clusterStatusService.retry();
+      void heartbeatService.retry();
       void fileService.refreshFiles();
+      return;
+    }
+
+    // Cluster Status Re-query
+    if (target.closest('#btn-retry-cluster')) {
+      e.preventDefault();
+      const btn = target.closest<HTMLButtonElement>('#btn-retry-cluster');
+      if (btn) btn.textContent = 'Querying...';
+      void clusterStatusService.retry().finally(() => {
+        if (btn) btn.textContent = 'Re-query Status';
+      });
+      return;
+    }
+
+    // Heartbeat Rail Reconnect
+    if (target.closest('#btn-reconnect-rail')) {
+      e.preventDefault();
+      const btn = target.closest<HTMLButtonElement>('#btn-reconnect-rail');
+      if (btn) btn.textContent = 'Connecting...';
+      void heartbeatService.retry().finally(() => {
+        if (btn) btn.textContent = 'Reconnect Rail';
+      });
+      return;
+    }
+
+    // Node List Retry Fetch
+    if (target.closest('#btn-retry-nodes')) {
+      e.preventDefault();
+      const btn = target.closest<HTMLButtonElement>('#btn-retry-nodes');
+      if (btn) btn.textContent = 'Retrying...';
+      void heartbeatService.retry().finally(() => {
+        if (btn) btn.textContent = 'Retry Fetch';
+      });
       return;
     }
 
@@ -602,6 +637,8 @@ function init(): void {
   errorBoundary.onRetry(() => {
     renderDashboard();
     void healthService.checkHealth();
+    void clusterStatusService.retry();
+    void heartbeatService.retry();
     void fileService.refreshFiles();
   });
 

@@ -220,6 +220,14 @@ export class HeartbeatService {
   }
 
   /**
+   * Immediately re-attempts querying node telemetry and heartbeats,
+   * notifying subscribers without requiring a full page reload.
+   */
+  public async retry(): Promise<HeartbeatRailResult> {
+    return this.pollHeartbeats();
+  }
+
+  /**
    * Starts periodic polling loop for heartbeat telemetry.
    */
   public startPolling(config: HeartbeatPollingConfig | number = 500): void {
