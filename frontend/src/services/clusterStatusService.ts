@@ -98,6 +98,16 @@ export class ClusterStatusService {
   }
 
   /**
+   * Immediately re-attempts fetching cluster status, resetting backoff delays
+   * and notifying subscribers without requiring a full page reload.
+   */
+  public async retry(): Promise<ClusterStatusResult> {
+    this.lastResult.consecutiveFailures = 0;
+    this.lastResult.currentIntervalMs = this.baseIntervalMs;
+    return this.fetchClusterStatus();
+  }
+
+  /**
    * Calculates exponential backoff delay based on consecutive failure count.
    */
   public calculateBackoffInterval(consecutiveFailures: number): number {

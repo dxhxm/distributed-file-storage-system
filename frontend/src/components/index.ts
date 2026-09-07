@@ -4,4 +4,5 @@ export * from './HeartbeatRail.ts';
 export * from './NodeList.ts';
 export * from './FilePanel.ts';
 export * from './NodeDetailPanel.ts';
+export * from './ErrorBoundary.ts';
 
