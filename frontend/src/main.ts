@@ -17,6 +17,7 @@ import {
   updateNodeListDOM,
   updateNodeDetailDOM,
   updateFilePanelDOM,
+  errorBoundary,
 } from './components/index.ts';
 import type { ViewState } from './types/components.ts';
 import type { NodeDetailResponse } from './types/api.ts';
@@ -117,6 +118,25 @@ function attachInteractiveNodeSelection(): void {
   appMain.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
     if (!target) return;
+
+    // Error Boundary actions
+    if (target.closest('#btn-boundary-retry')) {
+      e.preventDefault();
+      errorBoundary.triggerRetry();
+      return;
+    }
+
+    if (target.closest('#btn-boundary-reset')) {
+      e.preventDefault();
+      errorBoundary.reset();
+      currentViewState = 'normal';
+      selectedNodeId = null;
+      selectedNodeDetail = null;
+      renderDashboard();
+      void healthService.checkHealth();
+      void fileService.refreshFiles();
+      return;
+    }
 
     // Close button / backdrop clicks
     if (target.closest('#btn-close-node-detail') || target.closest('#btn-dismiss-node-detail') || target.matches('#node-detail-backdrop')) {
@@ -477,75 +497,96 @@ function renderDashboard(): void {
   const appContainer = document.getElementById('app-main');
   if (!appContainer) return;
 
+  if (errorBoundary.hasError()) {
+    appContainer.innerHTML = errorBoundary.renderFallback();
+    attachInteractiveNodeSelection();
+    return;
+  }
+
   const currentHealth = healthService.getLastResult();
   const currentCluster = clusterStatusService.getLastResult();
   const currentHeartbeats = heartbeatService.getLastResult();
   const currentFiles = fileService.getResult();
 
-  const switcherHtml = `
-    <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
-      <span style="font-size: var(--text-2xs); color: var(--color-muted); font-family: var(--font-mono); text-transform: uppercase;">State Preview:</span>
-      <div class="state-switcher-toolbar" role="toolbar" aria-label="Visual State Switcher">
-        <button class="state-btn ${currentViewState === 'normal' ? 'active' : ''}" data-state="normal">LIVE</button>
-        <button class="state-btn ${currentViewState === 'loading' ? 'active' : ''}" data-state="loading">LOADING</button>
-        <button class="state-btn ${currentViewState === 'empty' ? 'active' : ''}" data-state="empty">EMPTY</button>
-        <button class="state-btn ${currentViewState === 'error' ? 'active' : ''}" data-state="error">ERROR</button>
+  const renderedContent = errorBoundary.wrap(() => {
+    const switcherHtml = `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
+        <span style="font-size: var(--text-2xs); color: var(--color-muted); font-family: var(--font-mono); text-transform: uppercase;">State Preview:</span>
+        <div class="state-switcher-toolbar" role="toolbar" aria-label="Visual State Switcher">
+          <button class="state-btn ${currentViewState === 'normal' ? 'active' : ''}" data-state="normal">LIVE</button>
+          <button class="state-btn ${currentViewState === 'loading' ? 'active' : ''}" data-state="loading">LOADING</button>
+          <button class="state-btn ${currentViewState === 'empty' ? 'active' : ''}" data-state="empty">EMPTY</button>
+          <button class="state-btn ${currentViewState === 'error' ? 'active' : ''}" data-state="error">ERROR</button>
+        </div>
       </div>
-    </div>
-  `;
+    `;
 
-  appContainer.innerHTML = `
-    ${switcherHtml}
+    return `
+      ${switcherHtml}
 
-    <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
-    <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
-      <div id="cluster-status-root">
-        ${renderClusterStatus(
-          currentCluster.data,
-          currentHealth.status,
-          currentCluster.latencyMs,
-          currentViewState
-        )}
-      </div>
-      <div id="heartbeat-rail-root">
-        ${renderHeartbeatRail(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
-      </div>
-    </section>
+      <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
+      <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
+        <div id="cluster-status-root">
+          ${renderClusterStatus(
+            currentCluster.data,
+            currentHealth.status,
+            currentCluster.latencyMs,
+            currentViewState
+          )}
+        </div>
+        <div id="heartbeat-rail-root">
+          ${renderHeartbeatRail(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
+        </div>
+      </section>
 
-    <!-- LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES) -->
-    <div class="lower-zones-grid">
-      <div id="node-list-root">
-        ${renderNodeList(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
+      <!-- LOWER TWO-COLUMN GRID: ZONE 2 (NODES) & ZONE 3 (FILES) -->
+      <div class="lower-zones-grid">
+        <div id="node-list-root">
+          ${renderNodeList(currentHeartbeats.nodes, currentViewState, undefined, selectedNodeId)}
+        </div>
+        <div id="file-panel-root">
+          ${renderFilePanel(
+            currentFiles.files,
+            currentViewState,
+            currentFiles.error || undefined,
+            currentFiles.totalFiles,
+            currentFiles.totalSizeBytes,
+            currentFiles.searchQuery,
+            currentFiles.uploadState,
+            currentFiles.downloadState,
+            currentFiles.deleteState,
+            currentHeartbeats.nodes,
+            currentCluster.data?.cluster_state
+          )}
+        </div>
       </div>
-      <div id="file-panel-root">
-        ${renderFilePanel(
-          currentFiles.files,
-          currentViewState,
-          currentFiles.error || undefined,
-          currentFiles.totalFiles,
-          currentFiles.totalSizeBytes,
-          currentFiles.searchQuery,
-          currentFiles.uploadState,
-          currentFiles.downloadState,
-          currentFiles.deleteState,
-          currentHeartbeats.nodes,
-          currentCluster.data?.cluster_state
-        )}
-      </div>
-    </div>
 
-    <!-- ZERO LAYOUT SHIFT OVERLAY DRAWER CONTAINER -->
-    <div id="node-detail-root">
-      ${renderNodeDetailPanel({
-        nodeId: selectedNodeId,
-        nodeDetail: selectedNodeDetail,
-        latencyMs: selectedNodeLatency,
-        isOpen: selectedNodeId !== null,
-        state: isDetailLoading ? 'loading' : detailErrorMessage ? 'error' : 'normal',
-        errorMessage: detailErrorMessage,
-      })}
-    </div>
-  `;
+      <!-- ZERO LAYOUT SHIFT OVERLAY DRAWER CONTAINER -->
+      <div id="node-detail-root">
+        ${renderNodeDetailPanel({
+          nodeId: selectedNodeId,
+          nodeDetail: selectedNodeDetail,
+          latencyMs: selectedNodeLatency,
+          isOpen: selectedNodeId !== null,
+          state: isDetailLoading ? 'loading' : detailErrorMessage ? 'error' : 'normal',
+          errorMessage: detailErrorMessage,
+        })}
+      </div>
+    `;
+  }, 'renderDashboard', {
+    viewState: currentViewState,
+    selectedNodeId,
+    clusterState: currentCluster.data?.cluster_state,
+    fileCount: currentFiles.files.length,
+  });
+
+  if (errorBoundary.hasError() || !renderedContent) {
+    appContainer.innerHTML = errorBoundary.renderFallback();
+    attachInteractiveNodeSelection();
+    return;
+  }
+
+  appContainer.innerHTML = renderedContent;
 
   attachStateSwitcherListeners();
   attachInteractiveNodeSelection();
@@ -557,6 +598,39 @@ function renderDashboard(): void {
 }
 
 function init(): void {
+  // Setup global error boundary retry callback
+  errorBoundary.onRetry(() => {
+    renderDashboard();
+    void healthService.checkHealth();
+    void fileService.refreshFiles();
+  });
+
+  // Intercept uncaught window errors
+  window.addEventListener('error', (event) => {
+    const appContainer = document.getElementById('app-main');
+    errorBoundary.captureError(
+      event.error || new Error(event.message || 'Uncaught runtime error'),
+      'window.onerror',
+      { filename: event.filename, lineno: event.lineno, colno: event.colno }
+    );
+    if (appContainer) {
+      appContainer.innerHTML = errorBoundary.renderFallback();
+      attachInteractiveNodeSelection();
+    }
+  });
+
+  // Intercept unhandled Promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    const appContainer = document.getElementById('app-main');
+    const reason = event.reason;
+    const err = reason instanceof Error ? reason : new Error(String(reason || 'Unhandled Promise rejection'));
+    errorBoundary.captureError(err, 'unhandledrejection', { reason: String(reason) });
+    if (appContainer) {
+      appContainer.innerHTML = errorBoundary.renderFallback();
+      attachInteractiveNodeSelection();
+    }
+  });
+
   // Setup client-side routes
   router
     .addRoute('/', () => renderDashboard())
@@ -568,7 +642,7 @@ function init(): void {
 
   // Subscribe to health monitoring for live backend indicator
   healthService.subscribe((result) => {
-    if (currentViewState !== 'normal') return;
+    if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
     const connectivityItem = document.getElementById('backend-connectivity-item');
     if (connectivityItem) {
       if (result.reachable) {
@@ -581,7 +655,7 @@ function init(): void {
 
   // Subscribe to cluster status polling for dynamic Zone 1 telemetry
   clusterStatusService.subscribe((result) => {
-    if (currentViewState !== 'normal') return;
+    if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
     const healthResult = healthService.getLastResult();
     const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
@@ -603,7 +677,7 @@ function init(): void {
 
   // Subscribe to heartbeat rail & node telemetry for Zone 1, Zone 2, and open Node Detail Panel live synchronization
   heartbeatService.subscribe((result) => {
-    if (currentViewState !== 'normal') return;
+    if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
     updateHeartbeatRailDOM(result.nodes, selectedNodeId);
     updateNodeListDOM(result.nodes, selectedNodeId);
 
@@ -650,7 +724,7 @@ function init(): void {
 
   // Subscribe to file ledger updates for Zone 3 live synchronization
   fileService.subscribe((result) => {
-    if (currentViewState !== 'normal') return;
+    if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
     updateFilePanelDOM(
       result.files,
       result.totalFiles,
