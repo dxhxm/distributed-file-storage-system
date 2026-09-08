@@ -193,6 +193,13 @@
   background-color: var(--color-surface-hover);
 }
 
+.heartbeat-lane:focus-visible {
+  outline: 2px solid var(--color-ok);
+  outline-offset: -1px;
+  border-color: var(--color-line-bright);
+  background-color: var(--color-surface-hover);
+}
+
 .lane-node-id {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -309,7 +316,8 @@
 }
 
 .node-row:focus-visible {
-  outline: 1px solid var(--color-ok);
+  outline: 2px solid var(--color-ok);
+  outline-offset: -2px;
   background-color: var(--color-surface-hover);
 }
 
@@ -615,6 +623,12 @@
   color: var(--color-ink);
 }
 
+.btn-file-action:focus-visible {
+  outline: 2px solid var(--color-ok);
+  outline-offset: 1px;
+  border-color: var(--color-line-bright);
+}
+
 .btn-file-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -851,6 +865,11 @@
   border-color: var(--color-line-bright);
 }
 
+.state-btn:focus-visible {
+  outline: 2px solid var(--color-ok);
+  outline-offset: 1px;
+}
+
 /* ==========================================================================
    8. NODE SELECTION & NODE DETAIL PANEL (ZERO-LAYOUT-SHIFT OVERLAY DRAWER)
    ========================================================================== */
@@ -967,7 +986,8 @@
 }
 
 .btn-close-detail:focus-visible {
-  outline: 1px solid var(--color-ok);
+  outline: 2px solid var(--color-ok);
+  outline-offset: 2px;
 }
 
 /* Panel Body & Scrollable Content */

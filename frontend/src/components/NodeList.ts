@@ -39,6 +39,7 @@ export function renderNodeRow(node: NodeInfo | NodeHeartbeatState, selectedNodeI
   const isSelected = selectedNodeId
     ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === displayName)
     : false;
+  const accessibleLabel = `${displayName}: Role ${node.state}, Status ${node.status}, Latency ${latency}, Port ${port}. Press Enter to view telemetry.`;
 
   return `
     <tr
@@ -47,12 +48,13 @@ export function renderNodeRow(node: NodeInfo | NodeHeartbeatState, selectedNodeI
       data-node="${dataKey}"
       tabindex="0"
       role="row"
+      aria-label="${accessibleLabel}"
       aria-selected="${isSelected ? 'true' : 'false'}"
     >
       <td class="font-mono text-ink">${displayName}</td>
       <td>
         <span class="badge ${badgeClass}">
-          <span class="status-dot ${dotClass}"></span> ${node.state}
+          <span class="status-dot ${dotClass}" aria-hidden="true"></span> ${node.state}
         </span>
       </td>
       <td title="${isOnline ? 'Node responding to consensus heartbeats' : `Heartbeat missed (>1.5s). Node unresponsive on ${port}. Replicas hosted on this node are temporarily unreachable.`}"><span class="${isOnline ? 'text-ok' : 'text-down'} font-mono text-xs">${node.status}</span></td>
@@ -138,7 +140,7 @@ export function renderNodeListEmpty(): string {
           No peer nodes discovered in cluster membership. Verify node processes (nodeA, nodeB, nodeC) are running on ports 8000–8002.
         </p>
         <div class="state-action-row">
-          <button id="btn-scan-nodes" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3);">Scan Local Ports (8000–8002)</button>
+          <button id="btn-scan-nodes" aria-label="Scan local ports 8000 to 8002" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3);">Scan Local Ports (8000–8002)</button>
         </div>
       </div>
     </section>
@@ -166,7 +168,7 @@ export function renderNodeListError(errorMsg?: string): string {
           ${message}
         </p>
         <div class="state-action-row">
-          <button id="btn-retry-nodes" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Fetch</button>
+          <button id="btn-retry-nodes" aria-label="Retry fetching node telemetry" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Fetch</button>
         </div>
       </div>
     </section>

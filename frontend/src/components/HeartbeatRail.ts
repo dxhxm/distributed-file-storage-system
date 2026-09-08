@@ -117,6 +117,10 @@ export function renderHeartbeatLane(
     ? `Active Heartbeat Pulse Stream for ${displayName}`
     : `Pulse Stalled for ${displayName}: Missed heartbeats (>1.5s). Node unresponsive on ${port}.`;
 
+  const statusText = isOnline ? 'Online' : 'Offline';
+  const roleText = isLeader ? 'Leader' : isCandidate ? 'Candidate' : 'Follower';
+  const accessibleLabel = `Node ${displayName}: ${statusText}, ${roleText}, Port ${port}. Press Enter to view telemetry.`;
+
   return `
     <div
       class="heartbeat-lane ${stalledClass} ${isSelected ? 'heartbeat-lane-selected' : ''}"
@@ -124,14 +128,15 @@ export function renderHeartbeatLane(
       data-node="${node.id}"
       tabindex="0"
       role="button"
+      aria-label="${accessibleLabel}"
       aria-pressed="${isSelected ? 'true' : 'false'}"
     >
       <div class="lane-node-id">
-        <span class="status-dot ${dotClass}"></span>
+        <span class="status-dot ${dotClass}" aria-hidden="true"></span>
         <span class="text-ink">${displayName}</span>
         <span class="badge ${badgeClass}" style="font-size: 9px; padding: 0 3px;">${badgeText}</span>
       </div>
-      <div class="lane-track" title="${laneTitle}">
+      <div class="lane-track" title="${laneTitle}" aria-hidden="true">
         ${renderTicksHtml(history, isPulsing)}
       </div>
       <div class="lane-meta ${isLeader ? 'text-ok' : isOnline ? '' : 'text-down'}">
@@ -167,9 +172,9 @@ export function renderHeartbeatRail(
           <span class="badge badge-info" style="font-size: var(--text-2xs); padding: 0 4px;">500ms Cadence</span>
         </div>
         <div class="heartbeat-rail-legend">
-          <span><span class="status-dot dot-ok" style="width: 5px; height: 5px;"></span> Healthy</span>
-          <span><span class="status-dot dot-warn" style="width: 5px; height: 5px;"></span> Syncing</span>
-          <span><span class="status-dot dot-down" style="width: 5px; height: 5px;"></span> Missed</span>
+          <span><span class="status-dot dot-ok" style="width: 5px; height: 5px;" aria-hidden="true"></span> Healthy</span>
+          <span><span class="status-dot dot-warn" style="width: 5px; height: 5px;" aria-hidden="true"></span> Syncing</span>
+          <span><span class="status-dot dot-down" style="width: 5px; height: 5px;" aria-hidden="true"></span> Missed</span>
         </div>
       </div>
 
@@ -215,6 +220,12 @@ export function updateHeartbeatRailDOM(
       ? (selectedNodeId === dataKey || selectedNodeId === node.id || selectedNodeId === node.displayName)
       : false;
 
+    const statusText = isOnline ? 'Online' : 'Offline';
+    const roleText = isLeader ? 'Leader' : isCandidate ? 'Candidate' : 'Follower';
+    const displayName = node.displayName || node.id;
+    const accessibleLabel = `Node ${displayName}: ${statusText}, ${roleText}, Port ${node.port}. Press Enter to view telemetry.`;
+    laneEl.setAttribute('aria-label', accessibleLabel);
+
     // Stalled state class
     if (isOnline) {
       laneEl.classList.remove('lane-stalled');
@@ -235,6 +246,7 @@ export function updateHeartbeatRailDOM(
     const dotEl = laneEl.querySelector('.status-dot');
     if (dotEl) {
       dotEl.className = `status-dot ${dotClass}`;
+      dotEl.setAttribute('aria-hidden', 'true');
     }
     const badgeEl = laneEl.querySelector('.badge');
     if (badgeEl) {
@@ -245,6 +257,7 @@ export function updateHeartbeatRailDOM(
     // Update track pulse ticks
     const trackEl = laneEl.querySelector('.lane-track');
     if (trackEl) {
+      trackEl.setAttribute('aria-hidden', 'true');
       trackEl.innerHTML = renderTicksHtml(node.history, node.isPulsing);
     }
 

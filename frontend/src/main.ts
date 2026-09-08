@@ -19,6 +19,7 @@ import {
   updateFilePanelDOM,
   errorBoundary,
 } from './components/index.ts';
+import { focusManager } from './utils/focusManager.ts';
 import type { ViewState } from './types/components.ts';
 import type { NodeDetailResponse } from './types/api.ts';
 
@@ -29,7 +30,14 @@ let selectedNodeLatency: number | undefined = undefined;
 let isDetailLoading: boolean = false;
 let detailErrorMessage: string | undefined = undefined;
 
+export function getPreviouslyFocusedElement(): HTMLElement | null {
+  return focusManager.getPreviousFocus();
+}
+
 export async function openNodeDetail(nodeId: string): Promise<void> {
+  // Capture previously focused element for accessible restoration on close
+  focusManager.captureActiveFocus();
+
   selectedNodeId = nodeId;
   detailErrorMessage = undefined;
 
@@ -89,6 +97,9 @@ export function closeNodeDetail(): void {
   updateNodeListDOM(currentHeartbeats.nodes, null);
 
   renderNodeDetailContainer();
+
+  // Restore focus to element that triggered the drawer
+  focusManager.restorePreviousFocus();
 }
 
 function renderNodeDetailContainer(): void {
@@ -107,6 +118,16 @@ function renderNodeDetailContainer(): void {
       if (selectedNodeId) void openNodeDetail(selectedNodeId);
     },
   });
+
+  // Transfer focus inside drawer for keyboard navigation
+  if (selectedNodeId !== null) {
+    setTimeout(() => {
+      const panel = document.getElementById('node-detail-panel');
+      if (panel) {
+        focusManager.focusInitial(panel, '#btn-close-node-detail');
+      }
+    }, 0);
+  }
 }
 
 function attachInteractiveNodeSelection(): void {
@@ -233,12 +254,26 @@ function attachInteractiveNodeSelection(): void {
     }
   });
 
-  // Global escape listener
+  // Global escape and focus trap listeners
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && selectedNodeId) {
+      e.preventDefault();
       closeNodeDetail();
+      return;
+    }
+    if (e.key === 'Tab' && selectedNodeId) {
+      trapDrawerFocus(e);
     }
   });
+}
+
+export function trapDrawerFocus(e: KeyboardEvent): void {
+  if (e.key !== 'Tab' || !selectedNodeId) return;
+
+  const panel = document.getElementById('node-detail-panel');
+  if (panel) {
+    focusManager.trapFocus(panel, e);
+  }
 }
 
 function attachInteractiveHoverLinks(): void {
