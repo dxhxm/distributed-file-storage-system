@@ -602,6 +602,8 @@ export function renderFilePanel(
   `;
 }
 
+let lastFilePanelTableSignature = '';
+
 /**
  * High-performance in-place DOM updater for Zone 3 File Panel.
  * Updates file rows, counts, and upload/download progress without losing search input focus or resetting page DOM.
@@ -627,6 +629,7 @@ export function updateFilePanelDOM(
     const root = document.getElementById('file-panel-root');
     if (root) {
       root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState, downloadState, deleteState, nodes, clusterState);
+      lastFilePanelTableSignature = '';
     }
     return;
   }
@@ -634,33 +637,56 @@ export function updateFilePanelDOM(
   const effTotalFiles = totalFiles !== undefined ? totalFiles : files.length;
   const effTotalBytes = totalSizeBytes !== undefined ? totalSizeBytes : files.reduce((acc, f) => acc + f.size, 0);
 
-  countEl.textContent = `(${effTotalFiles} FILES • ${formatBytes(effTotalBytes)})`;
+  const countText = `(${effTotalFiles} FILES • ${formatBytes(effTotalBytes)})`;
+  if (countEl.textContent !== countText) {
+    countEl.textContent = countText;
+  }
 
   if (searchInput && searchInput !== document.activeElement && searchInput.value !== searchQuery) {
     searchInput.value = searchQuery;
   }
 
   if (noticeSlot) {
-    noticeSlot.innerHTML = renderClusterNoticeBanner(clusterState);
+    const noticeHtml = renderClusterNoticeBanner(clusterState);
+    if (noticeSlot.innerHTML.trim() !== noticeHtml.trim()) {
+      noticeSlot.innerHTML = noticeHtml;
+    }
   }
 
   const uploadBtn = document.getElementById('btn-upload-file') as HTMLButtonElement | null;
   if (uploadBtn) {
     const isConsensusPaused = clusterState === 'NO MAJORITY';
-    uploadBtn.disabled = isConsensusPaused;
-    uploadBtn.title = isConsensusPaused
-      ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)'
-      : 'Upload file to cluster';
-    uploadBtn.style.opacity = isConsensusPaused ? '0.5' : '1';
-    uploadBtn.style.cursor = isConsensusPaused ? 'not-allowed' : 'pointer';
+    if (uploadBtn.disabled !== isConsensusPaused) {
+      uploadBtn.disabled = isConsensusPaused;
+      uploadBtn.title = isConsensusPaused
+        ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)'
+        : 'Upload file to cluster';
+      uploadBtn.style.opacity = isConsensusPaused ? '0.5' : '1';
+      uploadBtn.style.cursor = isConsensusPaused ? 'not-allowed' : 'pointer';
+    }
   }
 
   if (statusSlot) {
     const uploadHtml = renderUploadProgress(uploadState);
     const downloadHtml = renderDownloadError(downloadState);
     const deleteHtml = renderDeleteError(deleteState);
-    statusSlot.innerHTML = `${uploadHtml}${downloadHtml}${deleteHtml}`;
+    const combinedStatus = `${uploadHtml}${downloadHtml}${deleteHtml}`;
+    if (statusSlot.innerHTML !== combinedStatus) {
+      statusSlot.innerHTML = combinedStatus;
+    }
   }
+
+  // Memoize file table rows: compute display signature including node health and action state
+  const nodeSignature = nodes ? nodes.map(n => `${n.id}:${n.status}:${n.state}`).join(';') : '';
+  const actionSignature = `d:${downloadState?.isDownloading ? downloadState.fileId : ''}|c:${deleteState?.confirmingFileId || ''}|del:${deleteState?.isDeleting ? deleteState.fileId : ''}`;
+  const tableSignature = `${searchQuery}#${clusterState || ''}#${actionSignature}#${nodeSignature}#` + 
+    files.map(f => `${f.file_id}:${f.name}:${f.size}:${f.status}:${(f.replicas || []).join(',')}:${f.modified_at || 0}`).join('|');
+
+  if (tableSignature === lastFilePanelTableSignature) {
+    return; // Zero DOM mutations when files and replica statuses have not changed!
+  }
+
+  lastFilePanelTableSignature = tableSignature;
 
   if (files.length === 0) {
     if (searchQuery.trim().length > 0) {

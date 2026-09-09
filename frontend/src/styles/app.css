@@ -225,6 +225,8 @@
   height: 6px;
   background-color: var(--color-ok);
   opacity: 0.75;
+  transform: translateZ(0);
+  will-change: transform, opacity;
   transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
 }
 

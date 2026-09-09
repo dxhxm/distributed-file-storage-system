@@ -254,11 +254,30 @@ export function updateHeartbeatRailDOM(
       badgeEl.textContent = badgeText;
     }
 
-    // Update track pulse ticks
+    // Update track pulse ticks in-place without destroying and recreating DOM nodes
     const trackEl = laneEl.querySelector('.lane-track');
     if (trackEl) {
       trackEl.setAttribute('aria-hidden', 'true');
-      trackEl.innerHTML = renderTicksHtml(node.history, node.isPulsing);
+      const existingTicks = trackEl.querySelectorAll<HTMLSpanElement>('.pulse-tick');
+      const targetHistory = node.history.length > 0 ? node.history : Array(20).fill('ok');
+
+      if (existingTicks.length === targetHistory.length && existingTicks.length > 0) {
+        // High-speed in-place class update: zero DOM allocations
+        for (let i = 0; i < targetHistory.length; i++) {
+          const tick = targetHistory[i];
+          const isLeadTick = i === targetHistory.length - 1;
+          const tickEl = existingTicks[i];
+          const tickClass = tick === 'warn' ? 'tick-warn' : tick === 'missed' ? 'tick-missed' : '';
+          const pulseClass = (isLeadTick && node.isPulsing) ? 'pulse-active' : '';
+          const targetClassName = `pulse-tick ${tickClass} ${pulseClass}`.trim();
+          
+          if (tickEl && tickEl.className !== targetClassName) {
+            tickEl.className = targetClassName;
+          }
+        }
+      } else {
+        trackEl.innerHTML = renderTicksHtml(node.history, node.isPulsing);
+      }
     }
 
     // Update lane meta

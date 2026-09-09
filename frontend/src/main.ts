@@ -725,6 +725,10 @@ function init(): void {
     }
   });
 
+  // Keep track of previous states to avoid triggering FilePanel updates when nothing changed
+  let lastDispatchedClusterState: string | undefined = undefined;
+  let lastDispatchedNodeSignature = '';
+
   // Subscribe to cluster status polling for dynamic Zone 1 telemetry
   clusterStatusService.subscribe((result) => {
     if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
@@ -732,19 +736,23 @@ function init(): void {
     const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
 
-    // Keep FilePanel cluster notice banner in sync with live cluster state
-    const currentFiles = fileService.getResult();
-    updateFilePanelDOM(
-      currentFiles.files,
-      currentFiles.totalFiles,
-      currentFiles.totalSizeBytes,
-      currentFiles.searchQuery,
-      currentFiles.uploadState,
-      currentFiles.downloadState,
-      currentFiles.deleteState,
-      heartbeatService.getLastResult().nodes,
-      result.data?.cluster_state
-    );
+    // Only update FilePanel if cluster_state actually changed
+    const currentClusterState = result.data?.cluster_state;
+    if (currentClusterState !== lastDispatchedClusterState) {
+      lastDispatchedClusterState = currentClusterState;
+      const currentFiles = fileService.getResult();
+      updateFilePanelDOM(
+        currentFiles.files,
+        currentFiles.totalFiles,
+        currentFiles.totalSizeBytes,
+        currentFiles.searchQuery,
+        currentFiles.uploadState,
+        currentFiles.downloadState,
+        currentFiles.deleteState,
+        heartbeatService.getLastResult().nodes,
+        currentClusterState
+      );
+    }
   });
 
   // Subscribe to heartbeat rail & node telemetry for Zone 1, Zone 2, and open Node Detail Panel live synchronization
@@ -753,19 +761,23 @@ function init(): void {
     updateHeartbeatRailDOM(result.nodes, selectedNodeId);
     updateNodeListDOM(result.nodes, selectedNodeId);
 
-    // Keep FilePanel replica pills synchronized with node health
-    const currentFiles = fileService.getResult();
-    updateFilePanelDOM(
-      currentFiles.files,
-      currentFiles.totalFiles,
-      currentFiles.totalSizeBytes,
-      currentFiles.searchQuery,
-      currentFiles.uploadState,
-      currentFiles.downloadState,
-      currentFiles.deleteState,
-      result.nodes,
-      clusterStatusService.getLastResult().data?.cluster_state
-    );
+    // Check if node online statuses or roles changed before notifying FilePanel
+    const currentNodeSignature = result.nodes.map(n => `${n.id}:${n.status}:${n.state}`).join(';');
+    if (currentNodeSignature !== lastDispatchedNodeSignature) {
+      lastDispatchedNodeSignature = currentNodeSignature;
+      const currentFiles = fileService.getResult();
+      updateFilePanelDOM(
+        currentFiles.files,
+        currentFiles.totalFiles,
+        currentFiles.totalSizeBytes,
+        currentFiles.searchQuery,
+        currentFiles.uploadState,
+        currentFiles.downloadState,
+        currentFiles.deleteState,
+        result.nodes,
+        clusterStatusService.getLastResult().data?.cluster_state
+      );
+    }
 
     // If detail panel is open, update its telemetry in real time
     if (selectedNodeId) {
