@@ -19,6 +19,7 @@ import {
   updateFilePanelDOM,
   errorBoundary,
 } from './components/index.ts';
+import { focusManager } from './utils/focusManager.ts';
 import type { ViewState } from './types/components.ts';
 import type { NodeDetailResponse } from './types/api.ts';
 
@@ -29,7 +30,14 @@ let selectedNodeLatency: number | undefined = undefined;
 let isDetailLoading: boolean = false;
 let detailErrorMessage: string | undefined = undefined;
 
+export function getPreviouslyFocusedElement(): HTMLElement | null {
+  return focusManager.getPreviousFocus();
+}
+
 export async function openNodeDetail(nodeId: string): Promise<void> {
+  // Capture previously focused element for accessible restoration on close
+  focusManager.captureActiveFocus();
+
   selectedNodeId = nodeId;
   detailErrorMessage = undefined;
 
@@ -89,6 +97,9 @@ export function closeNodeDetail(): void {
   updateNodeListDOM(currentHeartbeats.nodes, null);
 
   renderNodeDetailContainer();
+
+  // Restore focus to element that triggered the drawer
+  focusManager.restorePreviousFocus();
 }
 
 function renderNodeDetailContainer(): void {
@@ -107,6 +118,16 @@ function renderNodeDetailContainer(): void {
       if (selectedNodeId) void openNodeDetail(selectedNodeId);
     },
   });
+
+  // Transfer focus inside drawer for keyboard navigation
+  if (selectedNodeId !== null) {
+    setTimeout(() => {
+      const panel = document.getElementById('node-detail-panel');
+      if (panel) {
+        focusManager.focusInitial(panel, '#btn-close-node-detail');
+      }
+    }, 0);
+  }
 }
 
 function attachInteractiveNodeSelection(): void {
@@ -233,12 +254,26 @@ function attachInteractiveNodeSelection(): void {
     }
   });
 
-  // Global escape listener
+  // Global escape and focus trap listeners
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && selectedNodeId) {
+      e.preventDefault();
       closeNodeDetail();
+      return;
+    }
+    if (e.key === 'Tab' && selectedNodeId) {
+      trapDrawerFocus(e);
     }
   });
+}
+
+export function trapDrawerFocus(e: KeyboardEvent): void {
+  if (e.key !== 'Tab' || !selectedNodeId) return;
+
+  const panel = document.getElementById('node-detail-panel');
+  if (panel) {
+    focusManager.trapFocus(panel, e);
+  }
 }
 
 function attachInteractiveHoverLinks(): void {
@@ -298,18 +333,6 @@ function attachInteractiveHoverLinks(): void {
     if (lane?.dataset.node) {
       highlightRow(lane.dataset.node, false);
     }
-  });
-}
-
-function attachStateSwitcherListeners(): void {
-  const stateBtns = document.querySelectorAll<HTMLButtonElement>('.state-btn');
-  stateBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetState = btn.dataset.state as ViewState;
-      if (targetState) {
-        setViewState(targetState);
-      }
-    });
   });
 }
 
@@ -544,21 +567,7 @@ function renderDashboard(): void {
   const currentFiles = fileService.getResult();
 
   const renderedContent = errorBoundary.wrap(() => {
-    const switcherHtml = `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
-        <span style="font-size: var(--text-2xs); color: var(--color-muted); font-family: var(--font-mono); text-transform: uppercase;">State Preview:</span>
-        <div class="state-switcher-toolbar" role="toolbar" aria-label="Visual State Switcher">
-          <button class="state-btn ${currentViewState === 'normal' ? 'active' : ''}" data-state="normal">LIVE</button>
-          <button class="state-btn ${currentViewState === 'loading' ? 'active' : ''}" data-state="loading">LOADING</button>
-          <button class="state-btn ${currentViewState === 'empty' ? 'active' : ''}" data-state="empty">EMPTY</button>
-          <button class="state-btn ${currentViewState === 'error' ? 'active' : ''}" data-state="error">ERROR</button>
-        </div>
-      </div>
-    `;
-
     return `
-      ${switcherHtml}
-
       <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
       <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
         <div id="cluster-status-root">
@@ -622,8 +631,6 @@ function renderDashboard(): void {
   }
 
   appContainer.innerHTML = renderedContent;
-
-  attachStateSwitcherListeners();
   attachInteractiveNodeSelection();
   attachFilePanelListeners();
 
@@ -690,6 +697,10 @@ function init(): void {
     }
   });
 
+  // Keep track of previous states to avoid triggering FilePanel updates when nothing changed
+  let lastDispatchedClusterState: string | undefined = undefined;
+  let lastDispatchedNodeSignature = '';
+
   // Subscribe to cluster status polling for dynamic Zone 1 telemetry
   clusterStatusService.subscribe((result) => {
     if (currentViewState !== 'normal' || errorBoundary.hasError()) return;
@@ -697,19 +708,23 @@ function init(): void {
     const connectivity = result.reachable ? healthResult.status : 'DISCONNECTED';
     updateClusterStatusDOM(result.data, connectivity, result.latencyMs);
 
-    // Keep FilePanel cluster notice banner in sync with live cluster state
-    const currentFiles = fileService.getResult();
-    updateFilePanelDOM(
-      currentFiles.files,
-      currentFiles.totalFiles,
-      currentFiles.totalSizeBytes,
-      currentFiles.searchQuery,
-      currentFiles.uploadState,
-      currentFiles.downloadState,
-      currentFiles.deleteState,
-      heartbeatService.getLastResult().nodes,
-      result.data?.cluster_state
-    );
+    // Only update FilePanel if cluster_state actually changed
+    const currentClusterState = result.data?.cluster_state;
+    if (currentClusterState !== lastDispatchedClusterState) {
+      lastDispatchedClusterState = currentClusterState;
+      const currentFiles = fileService.getResult();
+      updateFilePanelDOM(
+        currentFiles.files,
+        currentFiles.totalFiles,
+        currentFiles.totalSizeBytes,
+        currentFiles.searchQuery,
+        currentFiles.uploadState,
+        currentFiles.downloadState,
+        currentFiles.deleteState,
+        heartbeatService.getLastResult().nodes,
+        currentClusterState
+      );
+    }
   });
 
   // Subscribe to heartbeat rail & node telemetry for Zone 1, Zone 2, and open Node Detail Panel live synchronization
@@ -718,19 +733,23 @@ function init(): void {
     updateHeartbeatRailDOM(result.nodes, selectedNodeId);
     updateNodeListDOM(result.nodes, selectedNodeId);
 
-    // Keep FilePanel replica pills synchronized with node health
-    const currentFiles = fileService.getResult();
-    updateFilePanelDOM(
-      currentFiles.files,
-      currentFiles.totalFiles,
-      currentFiles.totalSizeBytes,
-      currentFiles.searchQuery,
-      currentFiles.uploadState,
-      currentFiles.downloadState,
-      currentFiles.deleteState,
-      result.nodes,
-      clusterStatusService.getLastResult().data?.cluster_state
-    );
+    // Check if node online statuses or roles changed before notifying FilePanel
+    const currentNodeSignature = result.nodes.map(n => `${n.id}:${n.status}:${n.state}`).join(';');
+    if (currentNodeSignature !== lastDispatchedNodeSignature) {
+      lastDispatchedNodeSignature = currentNodeSignature;
+      const currentFiles = fileService.getResult();
+      updateFilePanelDOM(
+        currentFiles.files,
+        currentFiles.totalFiles,
+        currentFiles.totalSizeBytes,
+        currentFiles.searchQuery,
+        currentFiles.uploadState,
+        currentFiles.downloadState,
+        currentFiles.deleteState,
+        result.nodes,
+        clusterStatusService.getLastResult().data?.cluster_state
+      );
+    }
 
     // If detail panel is open, update its telemetry in real time
     if (selectedNodeId) {

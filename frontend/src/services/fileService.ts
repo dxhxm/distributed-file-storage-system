@@ -25,12 +25,17 @@ export interface FileServiceResult {
   uploadState: UploadState | null;
   downloadState: DownloadState | null;
   deleteState: DeleteState | null;
+  consecutiveFailures: number;
+  currentIntervalMs: number;
 }
 
 export type FileServiceListener = (result: FileServiceResult) => void;
 
 export interface FilePollingConfig {
-  intervalMs?: number;
+  intervalMs?: number; // legacy alias
+  baseIntervalMs?: number;
+  maxIntervalMs?: number;
+  backoffFactor?: number;
   requestTimeoutMs?: number;
 }
 
@@ -45,13 +50,17 @@ export class FileService {
   private uploadState: UploadState | null = null;
   private downloadState: DownloadState | null = null;
   private deleteState: DeleteState | null = null;
+  private consecutiveFailures = 0;
+  private currentIntervalMs = 3000;
 
   private listeners: Set<FileServiceListener> = new Set();
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
   private isPolling = false;
 
-  private intervalMs = 3000;
+  private baseIntervalMs = 3000;
+  private maxIntervalMs = 15000;
+  private backoffFactor = 1.5;
   private requestTimeoutMs = 5000;
 
   constructor() {
@@ -76,10 +85,14 @@ export class FileService {
       this.reachable = true;
       this.lastError = null;
       this.lastTimestamp = Date.now();
+      this.consecutiveFailures = 0;
+      this.currentIntervalMs = this.baseIntervalMs;
     } catch (err: unknown) {
       this.reachable = false;
       this.lastError = err instanceof Error ? err.message : 'Failed to query file ledger';
       this.lastTimestamp = Date.now();
+      this.consecutiveFailures++;
+      this.currentIntervalMs = this.calculateBackoffInterval(this.consecutiveFailures);
     } finally {
       this.abortController = null;
     }
@@ -90,9 +103,11 @@ export class FileService {
   }
 
   /**
-   * Force an immediate refresh of the files ledger.
+   * Force an immediate refresh of the files ledger, resetting backoff delays.
    */
   public async refreshFiles(): Promise<FileServiceResult> {
+    this.consecutiveFailures = 0;
+    this.currentIntervalMs = this.baseIntervalMs;
     return this.fetchFiles();
   }
 
@@ -447,12 +462,30 @@ export class FileService {
   /**
    * Starts periodic polling loop for files ledger.
    */
+  /**
+   * Calculates exponential backoff delay based on consecutive failure count.
+   */
+  public calculateBackoffInterval(failures: number): number {
+    if (failures <= 0) {
+      return this.baseIntervalMs;
+    }
+    const exponentialDelay = this.baseIntervalMs * Math.pow(this.backoffFactor, failures);
+    return Math.min(Math.round(exponentialDelay), this.maxIntervalMs);
+  }
+
+  /**
+   * Starts periodic polling loop for files ledger with exponential backoff on failure.
+   */
   public startPolling(config: FilePollingConfig | number = 3000): void {
     if (typeof config === 'number') {
-      this.intervalMs = config;
+      this.baseIntervalMs = config;
+      this.currentIntervalMs = config;
     } else if (config) {
-      this.intervalMs = config.intervalMs ?? 3000;
+      this.baseIntervalMs = config.baseIntervalMs ?? config.intervalMs ?? 3000;
+      this.maxIntervalMs = config.maxIntervalMs ?? 15000;
+      this.backoffFactor = config.backoffFactor ?? 1.5;
       this.requestTimeoutMs = config.requestTimeoutMs ?? 5000;
+      this.currentIntervalMs = this.baseIntervalMs;
     }
 
     this.stopPolling();
@@ -463,9 +496,10 @@ export class FileService {
       await this.fetchFiles();
       if (!this.isPolling) return;
 
+      const delay = this.reachable ? this.baseIntervalMs : this.currentIntervalMs;
       this.timerId = setTimeout(() => {
         void executeLoop();
-      }, this.intervalMs);
+      }, delay);
     };
 
     void executeLoop();
@@ -511,6 +545,8 @@ export class FileService {
       uploadState: this.uploadState,
       downloadState: this.downloadState,
       deleteState: this.deleteState,
+      consecutiveFailures: this.consecutiveFailures,
+      currentIntervalMs: this.currentIntervalMs,
     };
   }
 
@@ -533,6 +569,8 @@ export class FileService {
     this.deleteState = null;
     this.reachable = false;
     this.lastError = null;
+    this.consecutiveFailures = 0;
+    this.currentIntervalMs = this.baseIntervalMs;
     this.listeners.clear();
   }
 

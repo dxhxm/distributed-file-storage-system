@@ -162,7 +162,7 @@ export function renderNodeDetailSkeleton(nodeId: string = 'nodeA'): string {
       </div>
 
       <div class="node-detail-footer">
-        <button type="button" class="btn-secondary font-sans" id="btn-dismiss-node-detail">Close</button>
+        <button type="button" class="btn-secondary font-sans" id="btn-dismiss-node-detail" aria-label="Close node detail panel">Close</button>
       </div>
     </aside>
   `;
@@ -210,6 +210,7 @@ export function renderNodeDetailError(nodeId: string, errorMsg?: string): string
               type="button"
               id="btn-retry-node-detail"
               data-node="${nodeId}"
+              aria-label="Retry fetching telemetry for node ${nodeId}"
               style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);"
             >
               Retry Request
@@ -219,7 +220,7 @@ export function renderNodeDetailError(nodeId: string, errorMsg?: string): string
       </div>
 
       <div class="node-detail-footer">
-        <button type="button" class="btn-secondary font-sans" id="btn-dismiss-node-detail">Close</button>
+        <button type="button" class="btn-secondary font-sans" id="btn-dismiss-node-detail" aria-label="Close node detail panel">Close</button>
       </div>
     </aside>
   `;
@@ -289,7 +290,7 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
 
   const peersHtml = peers.map(peer => `
     <span class="detail-peer-pill font-mono" data-peer="${peer}">
-      <span class="status-dot dot-ok" style="width: 5px; height: 5px;"></span>
+      <span class="status-dot dot-ok" style="width: 5px; height: 5px;" aria-hidden="true"></span>
       ${peer}
     </span>
   `).join('');
@@ -313,7 +314,7 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
           <div class="node-detail-title-row">
             <h2 class="node-detail-title font-mono" id="node-detail-title">${nodeId}</h2>
             <span class="badge ${roleBadgeClass}">
-              <span class="status-dot ${roleDotClass}"></span>
+              <span class="status-dot ${roleDotClass}" aria-hidden="true"></span>
               <span class="font-mono">${nodeState}</span>
             </span>
           </div>
@@ -339,7 +340,7 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
               <span class="detail-metric-label font-sans">CONNECTIVITY</span>
               <div class="detail-metric-val-row">
                 <span class="badge ${statusBadgeClass}" title="${isOnline ? 'Node responsive and communicating' : 'Node heartbeat timed out (>1.5s missed)'}">
-                  <span class="status-dot ${statusDotClass}"></span>
+                  <span class="status-dot ${statusDotClass}" aria-hidden="true"></span>
                   <span class="font-mono" id="node-detail-status-val">${nodeStatus}</span>
                 </span>
               </div>
@@ -416,6 +417,7 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
           class="btn-primary font-sans"
           id="btn-refresh-node-detail"
           data-node="${nodeId}"
+          aria-label="Refresh telemetry for ${nodeId}"
         >
           Refresh Telemetry
         </button>
@@ -423,6 +425,7 @@ export function renderNodeDetailPanel(props: NodeDetailProps): string {
           type="button"
           class="btn-secondary font-sans"
           id="btn-dismiss-node-detail"
+          aria-label="Close node detail panel"
         >
           Close
         </button>

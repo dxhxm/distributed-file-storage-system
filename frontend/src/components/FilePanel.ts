@@ -57,7 +57,7 @@ export function renderClusterNoticeBanner(clusterState?: string | null): string 
     return `
       <div class="cluster-notice-banner notice-down" id="cluster-notice-banner" role="status" aria-live="polite">
         <div class="cluster-notice-content">
-          <span class="badge badge-down"><span class="status-dot dot-down"></span> CONSENSUS PAUSED</span>
+          <span class="badge badge-down"><span class="status-dot dot-down" aria-hidden="true"></span> CONSENSUS PAUSED</span>
           <span class="cluster-notice-text font-sans text-xs">
             <strong>Quorum majority lost (< 2/3 nodes online).</strong> Consensus replication and mutations are paused to prevent split-brain inconsistencies. Existing replicas on active nodes remain downloadable.
           </span>
@@ -69,7 +69,7 @@ export function renderClusterNoticeBanner(clusterState?: string | null): string 
     return `
       <div class="cluster-notice-banner notice-warn" id="cluster-notice-banner" role="status" aria-live="polite">
         <div class="cluster-notice-content">
-          <span class="badge badge-warn"><span class="status-dot dot-warn"></span> QUORUM DEGRADED</span>
+          <span class="badge badge-warn"><span class="status-dot dot-warn" aria-hidden="true"></span> QUORUM DEGRADED</span>
           <span class="cluster-notice-text font-sans text-xs">
             <strong>1 node offline (2/3 nodes online).</strong> Majority quorum preserved; consensus transactions remain active. Replicas hosted on the offline node are temporarily unreachable.
           </span>
@@ -136,13 +136,14 @@ export function renderFileRow(
 
   const renderReplicaPill = (target: 'A' | 'B' | 'C', has: boolean, node: ReplicaNodeInfo) => {
     if (!has) {
-      return `<span class="replica-pill missing" title="Missing on ${node.id} — Target: 3x replication factor" style="opacity: 0.35;">-</span>`;
+      return `<span class="replica-pill missing" role="status" aria-label="Node ${target}: Missing replica (Target: 3x replication factor)" title="Missing on ${node.id} — Target: 3x replication factor" style="opacity: 0.35;">-</span>`;
     }
     if (!node.isOnline) {
-      return `<span class="replica-pill replica-offline" title="${node.id} (OFFLINE) — Replica stored but node unreachable"><span class="replica-node-dot dot-down"></span>${target}</span>`;
+      return `<span class="replica-pill replica-offline" role="status" aria-label="Node ${target}: Offline replica stored on ${node.id} (unreachable)" title="${node.id} (OFFLINE) — Replica stored but node unreachable"><span class="replica-node-dot dot-down" aria-hidden="true"></span>${target}</span>`;
     }
     const leaderClass = node.isLeader ? 'replica-leader' : '';
-    return `<span class="replica-pill active ${leaderClass}" title="${node.id} (${node.state}) — Active replica reachable"><span class="replica-node-dot dot-ok"></span>${target}</span>`;
+    const leaderText = node.isLeader ? ' (Leader)' : '';
+    return `<span class="replica-pill active ${leaderClass}" role="status" aria-label="Node ${target}: Active replica reachable on ${node.id}${leaderText}" title="${node.id} (${node.state}) — Active replica reachable"><span class="replica-node-dot dot-ok" aria-hidden="true"></span>${target}</span>`;
   };
 
   const pillA = renderReplicaPill('A', hasA, nodeA);
@@ -194,6 +195,7 @@ export function renderFileRow(
               class="btn-file-action btn-confirm-delete"
               data-file-id="${file.file_id || file.name}"
               data-filename="${file.name}"
+              aria-label="Confirm deletion of ${file.name}"
               title="Confirm deletion"
             >
               Confirm
@@ -202,6 +204,7 @@ export function renderFileRow(
               type="button"
               class="btn-file-action btn-cancel-delete"
               data-file-id="${file.file_id || file.name}"
+              aria-label="Cancel deletion of ${file.name}"
               title="Cancel deletion"
             >
               Cancel
@@ -214,6 +217,7 @@ export function renderFileRow(
               class="btn-file-action btn-download-file"
               data-file-id="${file.file_id || file.name}"
               data-filename="${file.name}"
+              aria-label="Download ${file.name}"
               title="${downloadTooltip}"
               ${downloadDisabled ? 'disabled' : ''}
             >
@@ -224,6 +228,7 @@ export function renderFileRow(
               class="btn-file-action btn-delete-file"
               data-file-id="${file.file_id || file.name}"
               data-filename="${file.name}"
+              aria-label="Delete ${file.name}"
               title="${deleteTooltip}"
               ${deleteDisabled ? 'disabled' : ''}
             >
@@ -246,12 +251,12 @@ export function renderUploadProgress(uploadState?: UploadState | null): string {
       <div class="upload-progress-card" id="upload-progress-card" aria-live="polite">
         <div class="upload-progress-header">
           <div class="upload-progress-title-group">
-            <span class="badge badge-info"><span class="status-dot dot-warn"></span> UPLOADING</span>
+            <span class="badge badge-info"><span class="status-dot dot-warn" aria-hidden="true"></span> UPLOADING</span>
             <span class="font-mono text-ink text-xs upload-filename" title="${uploadState.filename}">${uploadState.filename}</span>
           </div>
           <span class="font-mono text-xs text-muted upload-percentage">${uploadState.percent}%</span>
         </div>
-        <div class="upload-progress-track">
+        <div class="upload-progress-track" role="progressbar" aria-valuenow="${uploadState.percent}" aria-valuemin="0" aria-valuemax="100" aria-label="Upload progress for ${uploadState.filename}: ${uploadState.percent}%">
           <div class="upload-progress-bar" style="width: ${uploadState.percent}%;"></div>
         </div>
         <div class="upload-progress-footer">
@@ -266,12 +271,12 @@ export function renderUploadProgress(uploadState?: UploadState | null): string {
     return `
       <div class="upload-error-card" id="upload-error-card" role="alert">
         <div class="upload-error-info">
-          <span class="badge badge-down"><span class="status-dot dot-down"></span> UPLOAD FAILED</span>
+          <span class="badge badge-down"><span class="status-dot dot-down" aria-hidden="true"></span> UPLOAD FAILED</span>
           <span class="upload-error-message font-sans text-xs text-ink" title="${uploadState.error}">${uploadState.error}</span>
         </div>
         <div class="upload-error-actions">
-          <button type="button" id="btn-retry-upload" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-down-border); color: var(--color-down);">Retry</button>
-          <button type="button" id="btn-dismiss-upload-error" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
+          <button type="button" id="btn-retry-upload" class="btn-error-action" aria-label="Retry upload of ${uploadState.filename}" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-down-border); color: var(--color-down);">Retry</button>
+          <button type="button" id="btn-dismiss-upload-error" class="btn-error-action" aria-label="Dismiss upload error" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
         </div>
       </div>
     `;
@@ -285,11 +290,11 @@ export function renderDownloadError(downloadState?: DownloadState | null): strin
   return `
     <div class="download-error-card" id="download-error-card" role="alert">
       <div class="download-error-info">
-        <span class="badge badge-down"><span class="status-dot dot-down"></span> REPLICA ERROR</span>
+        <span class="badge badge-down"><span class="status-dot dot-down" aria-hidden="true"></span> REPLICA ERROR</span>
         <span class="download-error-message font-sans text-xs text-ink" title="${downloadState.error}">${downloadState.error}</span>
       </div>
       <div class="download-error-actions">
-        <button type="button" id="btn-dismiss-download-error" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
+        <button type="button" id="btn-dismiss-download-error" class="btn-error-action" aria-label="Dismiss download error" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
       </div>
     </div>
   `;
@@ -300,11 +305,11 @@ export function renderDeleteError(deleteState?: DeleteState | null): string {
   return `
     <div class="delete-error-card" id="delete-error-card" role="alert">
       <div class="delete-error-info">
-        <span class="badge badge-down"><span class="status-dot dot-down"></span> DELETE ERROR</span>
+        <span class="badge badge-down"><span class="status-dot dot-down" aria-hidden="true"></span> DELETE ERROR</span>
         <span class="delete-error-message font-sans text-xs text-ink" title="${deleteState.error}">${deleteState.error}</span>
       </div>
       <div class="delete-error-actions">
-        <button type="button" id="btn-dismiss-delete-error" class="btn-error-action" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
+        <button type="button" id="btn-dismiss-delete-error" class="btn-error-action" aria-label="Dismiss delete error" style="font-size: var(--text-2xs); padding: 2px 8px; border-color: var(--color-line); color: var(--color-muted);">Dismiss</button>
       </div>
     </div>
   `;
@@ -326,8 +331,8 @@ export function renderFilePanelSkeleton(): string {
           <input type="search" disabled placeholder="Filter filename..." style="width: 100%; max-width: 240px; font-size: var(--text-xs); opacity: 0.5;" aria-label="Filter files">
         </div>
         <div style="display: flex; gap: var(--space-2);">
-          <button disabled style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Trigger Sync</button>
-          <button disabled style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Upload File</button>
+          <button disabled aria-label="Trigger cluster file synchronization" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Trigger Sync</button>
+          <button disabled aria-label="Upload file to cluster" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Upload File</button>
         </div>
       </div>
 
@@ -417,8 +422,8 @@ export function renderFilePanelEmpty(
           >
         </div>
         <div style="display: flex; gap: var(--space-2);">
-          <button type="button" id="btn-trigger-sync" disabled style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Trigger Sync</button>
-          <button type="button" id="btn-upload-file" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
+          <button type="button" id="btn-trigger-sync" disabled aria-label="Trigger cluster file synchronization" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); opacity: 0.5;">Trigger Sync</button>
+          <button type="button" id="btn-upload-file" aria-label="Upload file to cluster" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
         </div>
       </div>
 
@@ -432,7 +437,7 @@ export function renderFilePanelEmpty(
 
       <div class="file-dropzone" id="file-dropzone">
         <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
-          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
+          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}" aria-hidden="true"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
           <span class="font-sans text-xs text-ink" style="margin-top: 4px;">${dropOverlaySubtitle}</span>
         </div>
 
@@ -445,7 +450,7 @@ export function renderFilePanelEmpty(
             No files stored in cluster. Upload a file above or drag and drop here to initiate 3x distributed replication across online nodes.
           </p>
           <div class="state-action-row">
-            <button type="button" id="btn-empty-upload" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); ${uploadBtnStyle}">Upload First File</button>
+            <button type="button" id="btn-empty-upload" aria-label="Upload first file to cluster" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); ${uploadBtnStyle}">Upload First File</button>
           </div>
         </div>
       </div>
@@ -474,7 +479,7 @@ export function renderFilePanelError(errorMsg?: string): string {
           ${message}
         </p>
         <div class="state-action-row">
-          <button type="button" id="btn-retry-files" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Ledger Query</button>
+          <button type="button" id="btn-retry-files" aria-label="Retry ledger query" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-color: var(--color-down-border);">Retry Ledger Query</button>
         </div>
       </div>
     </section>
@@ -556,8 +561,8 @@ export function renderFilePanel(
           >
         </div>
         <div style="display: flex; gap: var(--space-2);">
-          <button type="button" id="btn-trigger-sync" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
-          <button type="button" id="btn-upload-file" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
+          <button type="button" id="btn-trigger-sync" aria-label="Trigger cluster file synchronization" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5);">Trigger Sync</button>
+          <button type="button" id="btn-upload-file" aria-label="Upload file to cluster" title="${uploadBtnTitle}" ${uploadBtnDisabled} style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2-5); ${uploadBtnStyle}">Upload File</button>
         </div>
       </div>
 
@@ -571,7 +576,7 @@ export function renderFilePanel(
 
       <div class="file-dropzone" id="file-dropzone">
         <div class="file-drop-overlay" id="file-drop-overlay" aria-hidden="true">
-          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
+          <span class="badge ${isConsensusPaused ? 'badge-down' : 'badge-ok'}"><span class="status-dot ${isConsensusPaused ? 'dot-down' : 'dot-ok'}" aria-hidden="true"></span> ${isConsensusPaused ? 'CONSENSUS PAUSED' : 'DROP TO REPLICATE'}</span>
           <span class="font-sans text-xs text-ink" style="margin-top: 4px;">${dropOverlaySubtitle}</span>
         </div>
 
@@ -596,6 +601,8 @@ export function renderFilePanel(
     </section>
   `;
 }
+
+let lastFilePanelTableSignature = '';
 
 /**
  * High-performance in-place DOM updater for Zone 3 File Panel.
@@ -622,6 +629,7 @@ export function updateFilePanelDOM(
     const root = document.getElementById('file-panel-root');
     if (root) {
       root.innerHTML = renderFilePanel(files, 'normal', undefined, totalFiles, totalSizeBytes, searchQuery, uploadState, downloadState, deleteState, nodes, clusterState);
+      lastFilePanelTableSignature = '';
     }
     return;
   }
@@ -629,33 +637,56 @@ export function updateFilePanelDOM(
   const effTotalFiles = totalFiles !== undefined ? totalFiles : files.length;
   const effTotalBytes = totalSizeBytes !== undefined ? totalSizeBytes : files.reduce((acc, f) => acc + f.size, 0);
 
-  countEl.textContent = `(${effTotalFiles} FILES • ${formatBytes(effTotalBytes)})`;
+  const countText = `(${effTotalFiles} FILES • ${formatBytes(effTotalBytes)})`;
+  if (countEl.textContent !== countText) {
+    countEl.textContent = countText;
+  }
 
   if (searchInput && searchInput !== document.activeElement && searchInput.value !== searchQuery) {
     searchInput.value = searchQuery;
   }
 
   if (noticeSlot) {
-    noticeSlot.innerHTML = renderClusterNoticeBanner(clusterState);
+    const noticeHtml = renderClusterNoticeBanner(clusterState);
+    if (noticeSlot.innerHTML.trim() !== noticeHtml.trim()) {
+      noticeSlot.innerHTML = noticeHtml;
+    }
   }
 
   const uploadBtn = document.getElementById('btn-upload-file') as HTMLButtonElement | null;
   if (uploadBtn) {
     const isConsensusPaused = clusterState === 'NO MAJORITY';
-    uploadBtn.disabled = isConsensusPaused;
-    uploadBtn.title = isConsensusPaused
-      ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)'
-      : 'Upload file to cluster';
-    uploadBtn.style.opacity = isConsensusPaused ? '0.5' : '1';
-    uploadBtn.style.cursor = isConsensusPaused ? 'not-allowed' : 'pointer';
+    if (uploadBtn.disabled !== isConsensusPaused) {
+      uploadBtn.disabled = isConsensusPaused;
+      uploadBtn.title = isConsensusPaused
+        ? 'Uploads paused: Quorum majority lost (< 2/3 nodes active)'
+        : 'Upload file to cluster';
+      uploadBtn.style.opacity = isConsensusPaused ? '0.5' : '1';
+      uploadBtn.style.cursor = isConsensusPaused ? 'not-allowed' : 'pointer';
+    }
   }
 
   if (statusSlot) {
     const uploadHtml = renderUploadProgress(uploadState);
     const downloadHtml = renderDownloadError(downloadState);
     const deleteHtml = renderDeleteError(deleteState);
-    statusSlot.innerHTML = `${uploadHtml}${downloadHtml}${deleteHtml}`;
+    const combinedStatus = `${uploadHtml}${downloadHtml}${deleteHtml}`;
+    if (statusSlot.innerHTML !== combinedStatus) {
+      statusSlot.innerHTML = combinedStatus;
+    }
   }
+
+  // Memoize file table rows: compute display signature including node health and action state
+  const nodeSignature = nodes ? nodes.map(n => `${n.id}:${n.status}:${n.state}`).join(';') : '';
+  const actionSignature = `d:${downloadState?.isDownloading ? downloadState.fileId : ''}|c:${deleteState?.confirmingFileId || ''}|del:${deleteState?.isDeleting ? deleteState.fileId : ''}`;
+  const tableSignature = `${searchQuery}#${clusterState || ''}#${actionSignature}#${nodeSignature}#` + 
+    files.map(f => `${f.file_id}:${f.name}:${f.size}:${f.status}:${(f.replicas || []).join(',')}:${f.modified_at || 0}`).join('|');
+
+  if (tableSignature === lastFilePanelTableSignature) {
+    return; // Zero DOM mutations when files and replica statuses have not changed!
+  }
+
+  lastFilePanelTableSignature = tableSignature;
 
   if (files.length === 0) {
     if (searchQuery.trim().length > 0) {

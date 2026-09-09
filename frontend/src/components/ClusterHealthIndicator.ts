@@ -88,7 +88,7 @@ export function resolveHealthIndicatorStyle(
  */
 export function renderClusterHealthSkeleton(): string {
   return `
-    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite">
+    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite" aria-label="Cluster status: Scanning topology, Leader: Unavailable">
       <div class="telemetry-item health-status-item">
         <span class="telemetry-label">Status</span>
         <span class="skeleton-bar" style="width: 84px; height: 18px;"></span>
@@ -107,7 +107,7 @@ export function renderClusterHealthSkeleton(): string {
  */
 export function renderClusterHealthEmpty(): string {
   return `
-    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite">
+    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite" aria-label="Cluster status: Bootstrapping, Leader: None">
       <div class="telemetry-item health-status-item">
         <span class="telemetry-label">Status</span>
         <span class="badge badge-warn" id="cluster-state-badge">
@@ -129,7 +129,7 @@ export function renderClusterHealthEmpty(): string {
  */
 export function renderClusterHealthError(): string {
   return `
-    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite">
+    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite" aria-label="Cluster status: Disconnected, Leader: Unavailable">
       <div class="telemetry-item health-status-item">
         <span class="telemetry-label">Status</span>
         <span class="badge badge-down" id="cluster-state-badge">
@@ -159,9 +159,10 @@ export function renderClusterHealthIndicator(
   if (viewState === 'error') return renderClusterHealthError();
 
   const style = resolveHealthIndicatorStyle(state, leaderId);
+  const accessibleLabel = `Cluster status: ${style.clusterState}, Current Raft Leader: ${style.displayLeader}`;
 
   return `
-    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite">
+    <div class="health-indicator-group" id="cluster-health-indicator" role="status" aria-live="polite" aria-label="${accessibleLabel}">
       <div class="telemetry-item health-status-item">
         <span class="telemetry-label">Status</span>
         <span class="badge ${style.badgeClass} health-status-badge" id="cluster-state-badge" title="${style.tooltip}">
@@ -191,9 +192,9 @@ export function updateClusterHealthIndicatorDOM(
   const badgeEl = document.getElementById('cluster-state-badge');
   const labelEl = document.getElementById('cluster-state-label');
   const leaderValEl = document.getElementById('cluster-leader-val');
+  const root = document.getElementById('cluster-health-indicator');
 
   if (!badgeEl || !leaderValEl) {
-    const root = document.getElementById('cluster-health-indicator');
     if (root) {
       root.outerHTML = renderClusterHealthIndicator(state, leaderId, 'normal');
     }
@@ -201,6 +202,11 @@ export function updateClusterHealthIndicatorDOM(
   }
 
   const style = resolveHealthIndicatorStyle(state, leaderId);
+
+  // Update root container aria-label
+  if (root) {
+    root.setAttribute('aria-label', `Cluster status: ${style.clusterState}, Current Raft Leader: ${style.displayLeader}`);
+  }
 
   // Update badge styling classes and tooltip
   badgeEl.className = `badge ${style.badgeClass} health-status-badge`;
@@ -210,6 +216,7 @@ export function updateClusterHealthIndicatorDOM(
     const dot = badgeEl.querySelector('.status-dot');
     if (dot) {
       dot.className = `status-dot ${style.dotClass}`;
+      dot.setAttribute('aria-hidden', 'true');
     }
   } else {
     badgeEl.innerHTML = `<span class="status-dot ${style.dotClass}" aria-hidden="true"></span><span id="cluster-state-label">${style.clusterState}</span>`;

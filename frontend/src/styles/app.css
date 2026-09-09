@@ -193,6 +193,13 @@
   background-color: var(--color-surface-hover);
 }
 
+.heartbeat-lane:focus-visible {
+  outline: 2px solid var(--color-ok);
+  outline-offset: -1px;
+  border-color: var(--color-line-bright);
+  background-color: var(--color-surface-hover);
+}
+
 .lane-node-id {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -218,6 +225,8 @@
   height: 6px;
   background-color: var(--color-ok);
   opacity: 0.75;
+  transform: translateZ(0);
+  will-change: transform, opacity;
   transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
 }
 
@@ -309,7 +318,8 @@
 }
 
 .node-row:focus-visible {
-  outline: 1px solid var(--color-ok);
+  outline: 2px solid var(--color-ok);
+  outline-offset: -2px;
   background-color: var(--color-surface-hover);
 }
 
@@ -615,6 +625,12 @@
   color: var(--color-ink);
 }
 
+.btn-file-action:focus-visible {
+  outline: 2px solid var(--color-ok);
+  outline-offset: 1px;
+  border-color: var(--color-line-bright);
+}
+
 .btn-file-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -819,38 +835,6 @@
   color: var(--color-ink-secondary);
 }
 
-/* State Switcher Controls */
-.state-switcher-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  padding: var(--space-1-5) var(--space-2);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-none);
-}
-
-.state-btn {
-  font-size: var(--text-2xs);
-  font-family: var(--font-mono);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--color-muted);
-}
-
-.state-btn:hover {
-  color: var(--color-ink);
-  background-color: var(--color-surface-hover);
-}
-
-.state-btn.active {
-  color: var(--color-ink);
-  background-color: var(--color-surface-active);
-  border-color: var(--color-line-bright);
-}
-
 /* ==========================================================================
    8. NODE SELECTION & NODE DETAIL PANEL (ZERO-LAYOUT-SHIFT OVERLAY DRAWER)
    ========================================================================== */
@@ -967,7 +951,8 @@
 }
 
 .btn-close-detail:focus-visible {
-  outline: 1px solid var(--color-ok);
+  outline: 2px solid var(--color-ok);
+  outline-offset: 2px;
 }
 
 /* Panel Body & Scrollable Content */
