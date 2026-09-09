@@ -336,18 +336,6 @@ function attachInteractiveHoverLinks(): void {
   });
 }
 
-function attachStateSwitcherListeners(): void {
-  const stateBtns = document.querySelectorAll<HTMLButtonElement>('.state-btn');
-  stateBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetState = btn.dataset.state as ViewState;
-      if (targetState) {
-        setViewState(targetState);
-      }
-    });
-  });
-}
-
 export function setViewState(state: ViewState): void {
   currentViewState = state;
   renderDashboard();
@@ -579,21 +567,7 @@ function renderDashboard(): void {
   const currentFiles = fileService.getResult();
 
   const renderedContent = errorBoundary.wrap(() => {
-    const switcherHtml = `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); margin-bottom: -16px;">
-        <span style="font-size: var(--text-2xs); color: var(--color-muted); font-family: var(--font-mono); text-transform: uppercase;">State Preview:</span>
-        <div class="state-switcher-toolbar" role="toolbar" aria-label="Visual State Switcher">
-          <button class="state-btn ${currentViewState === 'normal' ? 'active' : ''}" data-state="normal">LIVE</button>
-          <button class="state-btn ${currentViewState === 'loading' ? 'active' : ''}" data-state="loading">LOADING</button>
-          <button class="state-btn ${currentViewState === 'empty' ? 'active' : ''}" data-state="empty">EMPTY</button>
-          <button class="state-btn ${currentViewState === 'error' ? 'active' : ''}" data-state="error">ERROR</button>
-        </div>
-      </div>
-    `;
-
     return `
-      ${switcherHtml}
-
       <!-- ZONE 1: CLUSTER STATUS & HEARTBEAT RAIL -->
       <section class="zone-cluster-status" id="zone-cluster-status" aria-label="Cluster Status and Telemetry">
         <div id="cluster-status-root">
@@ -657,8 +631,6 @@ function renderDashboard(): void {
   }
 
   appContainer.innerHTML = renderedContent;
-
-  attachStateSwitcherListeners();
   attachInteractiveNodeSelection();
   attachFilePanelListeners();
 
