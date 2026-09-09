@@ -23,12 +23,17 @@ export interface HeartbeatRailResult {
   reachable: boolean;
   timestamp: number;
   error: string | null;
+  consecutiveFailures: number;
+  currentIntervalMs: number;
 }
 
 export type HeartbeatListener = (result: HeartbeatRailResult) => void;
 
 export interface HeartbeatPollingConfig {
-  intervalMs?: number;
+  intervalMs?: number; // Backward-compatible alias
+  baseIntervalMs?: number;
+  maxIntervalMs?: number;
+  backoffFactor?: number;
   maxHistoryTicks?: number;
   requestTimeoutMs?: number;
 }
@@ -61,15 +66,21 @@ export class HeartbeatService {
   private abortController: AbortController | null = null;
   private isPolling = false;
 
-  private intervalMs = 500;
+  private baseIntervalMs = 500;
+  private maxIntervalMs = 10000;
+  private backoffFactor = 1.5;
   private requestTimeoutMs = 2000;
   private maxHistoryTicks = MAX_HISTORY_TICKS;
+  private consecutiveFailures = 0;
+  private currentIntervalMs = 500;
 
   private lastResult: HeartbeatRailResult = {
     nodes: [],
     reachable: false,
     timestamp: Date.now(),
     error: null,
+    consecutiveFailures: 0,
+    currentIntervalMs: 500,
   };
 
   constructor() {
@@ -181,14 +192,21 @@ export class HeartbeatService {
         updatedNodes.push(nodeState);
       }
 
+      this.consecutiveFailures = 0;
+      this.currentIntervalMs = this.baseIntervalMs;
+
       this.lastResult = {
         nodes: updatedNodes.length > 0 ? updatedNodes : Array.from(this.nodeMap.values()),
         reachable: true,
         timestamp: Date.now(),
         error: null,
+        consecutiveFailures: 0,
+        currentIntervalMs: this.baseIntervalMs,
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to query nodes';
+      this.consecutiveFailures++;
+      this.currentIntervalMs = this.calculateBackoffInterval(this.consecutiveFailures);
       
       // On connection error, mark all nodes with missed ticks
       for (const [key, node] of this.nodeMap.entries()) {
@@ -210,6 +228,8 @@ export class HeartbeatService {
         reachable: false,
         timestamp: Date.now(),
         error: errorMsg,
+        consecutiveFailures: this.consecutiveFailures,
+        currentIntervalMs: this.currentIntervalMs,
       };
     } finally {
       this.abortController = null;
@@ -221,22 +241,39 @@ export class HeartbeatService {
 
   /**
    * Immediately re-attempts querying node telemetry and heartbeats,
-   * notifying subscribers without requiring a full page reload.
+   * resetting backoff delays and notifying subscribers without requiring a full page reload.
    */
   public async retry(): Promise<HeartbeatRailResult> {
+    this.consecutiveFailures = 0;
+    this.currentIntervalMs = this.baseIntervalMs;
     return this.pollHeartbeats();
   }
 
   /**
-   * Starts periodic polling loop for heartbeat telemetry.
+   * Calculates exponential backoff delay based on consecutive failure count.
+   */
+  public calculateBackoffInterval(failures: number): number {
+    if (failures <= 0) {
+      return this.baseIntervalMs;
+    }
+    const exponentialDelay = this.baseIntervalMs * Math.pow(this.backoffFactor, failures);
+    return Math.min(Math.round(exponentialDelay), this.maxIntervalMs);
+  }
+
+  /**
+   * Starts periodic polling loop for heartbeat telemetry with exponential backoff on failure.
    */
   public startPolling(config: HeartbeatPollingConfig | number = 500): void {
     if (typeof config === 'number') {
-      this.intervalMs = config;
+      this.baseIntervalMs = config;
+      this.currentIntervalMs = config;
     } else if (config) {
-      this.intervalMs = config.intervalMs ?? 500;
+      this.baseIntervalMs = config.baseIntervalMs ?? config.intervalMs ?? 500;
+      this.maxIntervalMs = config.maxIntervalMs ?? 10000;
+      this.backoffFactor = config.backoffFactor ?? 1.5;
       this.maxHistoryTicks = config.maxHistoryTicks ?? MAX_HISTORY_TICKS;
       this.requestTimeoutMs = config.requestTimeoutMs ?? 2000;
+      this.currentIntervalMs = this.baseIntervalMs;
     }
 
     this.stopPolling();
@@ -247,9 +284,13 @@ export class HeartbeatService {
       await this.pollHeartbeats();
       if (!this.isPolling) return;
 
+      const delay = this.lastResult.reachable
+        ? this.baseIntervalMs
+        : this.lastResult.currentIntervalMs;
+
       this.timerId = setTimeout(() => {
         void executeLoop();
-      }, this.intervalMs);
+      }, delay);
     };
 
     void executeLoop();
@@ -295,6 +336,16 @@ export class HeartbeatService {
     this.stopPolling();
     this.nodeMap.clear();
     this.initializeDefaultNodes();
+    this.consecutiveFailures = 0;
+    this.currentIntervalMs = this.baseIntervalMs;
+    this.lastResult = {
+      nodes: Array.from(this.nodeMap.values()),
+      reachable: false,
+      timestamp: Date.now(),
+      error: null,
+      consecutiveFailures: 0,
+      currentIntervalMs: this.baseIntervalMs,
+    };
     this.listeners.clear();
   }
 
