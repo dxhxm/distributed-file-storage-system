@@ -38,6 +38,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
 | `created_at` | `TEXT` | `NOT NULL` | ISO 8601 UTC timestamp of creation (`YYYY-MM-DDTHH:MM:SS.ffffff+00:00`). |
 | `is_active` | `INTEGER` | `NOT NULL DEFAULT 1` | Account status flag (`1` for active, `0` for deactivated/suspended). |
 
+### 1.4 JWT Token Claims & Session Schema (Section 26)
+
+JSON Web Tokens issued by DFSS authenticate API requests and convey authorization roles.
+
+| Claim | Type | Description |
+| :--- | :--- | :--- |
+| `sub` | `string` | User ID (UUID4 of the user account). |
+| `role` | `string` | User role (`'USER'`, `'ADMIN'`, `'SYSTEM'`). |
+| `iat` | `integer` | UNIX timestamp when the token was issued. |
+| `exp` | `integer` | UNIX timestamp when the token expires (default: +60 minutes). |
+| `username` | `string` | Optional human-readable account handle. |
+
 ---
 
 ## 2. Distributed File Metadata Schema (Section 19)

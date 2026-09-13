@@ -13,6 +13,15 @@ from app.services.user_storage import (
     delete_user,
     get_db_path,
 )
+from app.services.jwt_service import (
+    create_access_token,
+    decode_access_token,
+    JWTError,
+    TokenExpiredError,
+    TokenInvalidError,
+    get_jwt_secret,
+    get_jwt_algorithm,
+)
 
 __all__ = [
     "hash_password",
@@ -24,4 +33,11 @@ __all__ = [
     "list_users",
     "delete_user",
     "get_db_path",
+    "create_access_token",
+    "decode_access_token",
+    "JWTError",
+    "TokenExpiredError",
+    "TokenInvalidError",
+    "get_jwt_secret",
+    "get_jwt_algorithm",
 ]
