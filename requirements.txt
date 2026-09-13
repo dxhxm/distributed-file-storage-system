@@ -16,3 +16,4 @@ typing_extensions==4.15.0
 uvicorn==0.42.0
 python-multipart
 requests
+bcrypt>=4.0.0
