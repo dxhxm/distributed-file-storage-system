@@ -16,10 +16,20 @@ from app.api import time_sync
 from app.api import replicate_routes
 from app.services.time_sync import start_periodic_sync, start_clock_slew
 from app.services.health_service import start_heartbeat
+from app.services.user_storage import init_db
+from app.models.config import validate_auth_config
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validate critical authentication secrets and environment configuration
+    validate_auth_config()
+    print("INFO: Authentication & Secrets Configuration Validated.")
+
+    # Initialize SQLite database and user schema
+    init_db()
+    print("INFO: Storage & User Metadata Database Initialized.")
+
     # Start periodic time synchronization background task
     asyncio.create_task(start_periodic_sync(interval=30))
     print("INFO: Periodic Time Synchronization Task Started.")

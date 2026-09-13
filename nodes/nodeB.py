@@ -12,6 +12,7 @@ sys.path.insert(0, PROJECT_ROOT)
 os.environ["NODE_NAME"] = "Node B"
 os.environ["CURRENT_NODE_URL"] = "http://localhost:8001"
 os.environ["STORAGE_DIR"] = os.path.join(PROJECT_ROOT, "nodes", "Node2", "Storage")
+os.environ.setdefault("JWT_SECRET", "local-dev-cluster-node-jwt-secret-key-2026-64-bytes-sample")
 
 # Ensure storage directory exists
 os.makedirs(os.environ["STORAGE_DIR"], exist_ok=True)
