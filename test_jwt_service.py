@@ -9,6 +9,7 @@ Automated test suite for JWT encoding, decoding, and validation:
 5. Invalid secret key, malformed tokens, and missing claims handling.
 """
 
+import os
 import time
 import unittest
 from datetime import timedelta
@@ -28,6 +29,16 @@ from app.services.jwt_service import (
 
 
 class TestJWTService(unittest.TestCase):
+
+    def setUp(self):
+        self._orig_secret = os.environ.get("JWT_SECRET")
+        os.environ["JWT_SECRET"] = "test-jwt-secret-key-for-running-automated-test-suite-2026-64-byte-secure-key"
+
+    def tearDown(self):
+        if self._orig_secret is not None:
+            os.environ["JWT_SECRET"] = self._orig_secret
+        else:
+            os.environ.pop("JWT_SECRET", None)
 
     def test_token_lossless_roundtrip(self):
         """DoD: Token round-trips (encode then decode) losslessly carrying sub and role."""
