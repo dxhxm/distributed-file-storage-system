@@ -11,4 +11,13 @@ dist/
 node1/Storage/
 node2/Storage/
 node3/Storage/
+nodes/*/Storage/
+Storage/
+*.db
+*.sqlite3
 
+# Environment and Secrets (Section 34)
+.env
+.env.*
+.env.local
+!.env.example

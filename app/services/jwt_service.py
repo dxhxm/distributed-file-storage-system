@@ -15,11 +15,10 @@ from typing import Any, Dict, Optional, Union
 import jwt
 
 from app.models.user_model import Role
+from app.models.config import get_jwt_secret, get_jwt_expiry_minutes
 
 # Configurable JWT parameters from environment variables
-DEFAULT_JWT_SECRET = "dfss-distributed-storage-jwt-secret-key-2026"
 DEFAULT_JWT_ALGORITHM = "HS256"
-DEFAULT_EXPIRE_MINUTES = 60
 
 
 class JWTError(Exception):
@@ -35,11 +34,6 @@ class TokenExpiredError(JWTError):
 class TokenInvalidError(JWTError):
     """Raised when a JWT signature is invalid, tampered with, or malformed."""
     pass
-
-
-def get_jwt_secret() -> str:
-    """Retrieves the active JWT secret key."""
-    return os.environ.get("JWT_SECRET_KEY", DEFAULT_JWT_SECRET)
 
 
 def get_jwt_algorithm() -> str:
@@ -85,7 +79,7 @@ def create_access_token(
     if expires_delta:
         expire = now + expires_delta
     else:
-        expire = now + timedelta(minutes=DEFAULT_EXPIRE_MINUTES)
+        expire = now + timedelta(minutes=get_jwt_expiry_minutes())
 
     payload: Dict[str, Any] = {
         "sub": str(user_id),
