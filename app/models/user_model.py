@@ -45,3 +45,48 @@ class User(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp when the user account was created"
     )
+
+
+class LoginRequest(BaseModel):
+    """
+    Schema for user authentication request payload.
+    """
+    username: str = Field(..., min_length=1, description="Account username")
+    password: str = Field(..., min_length=1, description="Plaintext password for verification")
+
+
+class LoginResponse(BaseModel):
+    """
+    Schema for user authentication response upon successful login.
+    """
+    access_token: str = Field(..., description="Signed JWT bearer access token")
+    token_type: str = Field(default="bearer", description="Token authorization type")
+    role: str = Field(..., description="Assigned user role (USER, ADMIN, SYSTEM)")
+    username: str = Field(..., description="Username of the authenticated account")
+    user_id: str = Field(..., description="Unique user identifier")
+    expires_in_minutes: int = Field(..., description="Token lifespan duration in minutes")
+
+
+class CreateUserRequest(BaseModel):
+    """
+    Schema for admin-only user provisioning request.
+    """
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    username: str = Field(..., min_length=1, description="Unique username for the new account")
+    password: str = Field(..., min_length=1, description="Initial plaintext password to be hashed")
+    role: Role = Field(default=Role.USER, description="Assigned authorization role (USER, ADMIN, SYSTEM)")
+    is_active: bool = Field(default=True, description="Account active status")
+
+
+class UserResponse(BaseModel):
+    """
+    Public user entity response schema (never exposes password or hash).
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(..., description="Unique user ID")
+    username: str = Field(..., description="Username of the user account")
+    role: str = Field(..., description="Assigned role")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+    is_active: bool = Field(..., description="Account active status")
