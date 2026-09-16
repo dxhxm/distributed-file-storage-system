@@ -45,3 +45,23 @@ class User(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp when the user account was created"
     )
+
+
+class LoginRequest(BaseModel):
+    """
+    Schema for user authentication request payload.
+    """
+    username: str = Field(..., min_length=1, description="Account username")
+    password: str = Field(..., min_length=1, description="Plaintext password for verification")
+
+
+class LoginResponse(BaseModel):
+    """
+    Schema for user authentication response upon successful login.
+    """
+    access_token: str = Field(..., description="Signed JWT bearer access token")
+    token_type: str = Field(default="bearer", description="Token authorization type")
+    role: str = Field(..., description="Assigned user role (USER, ADMIN, SYSTEM)")
+    username: str = Field(..., description="Username of the authenticated account")
+    user_id: str = Field(..., description="Unique user identifier")
+    expires_in_minutes: int = Field(..., description="Token lifespan duration in minutes")
