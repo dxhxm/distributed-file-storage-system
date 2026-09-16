@@ -5,13 +5,18 @@ Authentication API routes for the Distributed File Storage System (DFSS).
 Implements Section 26 user authentication, RBAC authorization, and user management:
 - POST /auth/login (and /login alias)
 - POST /auth/users (and /users alias) restricted strictly to ADMIN role
-- Security dependencies for JWT bearer extraction and role-based access control.
+- GET /auth/me (and /me alias) returning authenticated session profile
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.api.dependencies import (
+    AuthenticatedUser,
+    get_current_user,
+    require_admin,
+    require_role,
+)
 from app.models.config import get_jwt_expiry_minutes
 from app.models.user_model import (
     CreateUserRequest,
@@ -21,66 +26,14 @@ from app.models.user_model import (
     UserResponse,
 )
 from app.services.auth_service import hash_password, verify_password
-from app.services.jwt_service import (
-    TokenExpiredError,
-    TokenInvalidError,
-    create_access_token,
-    decode_access_token,
-)
+from app.services.jwt_service import create_access_token
 from app.services.user_storage import create_user, get_user_by_username
 
 router = APIRouter(tags=["Authentication"])
-security = HTTPBearer(auto_error=False)
 
 # Pre-computed valid dummy bcrypt hash to ensure constant-time response on non-existent users
 # (prevents user enumeration via timing attacks)
 _DUMMY_HASH = "$2b$12$0Gq0v3mR9Jq6Y7zL5H2bte7wX1a3k4j5l6m7n8o9p0q1r2s3t4u5v"
-
-
-async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Dict[str, Any]:
-    """
-    Extracts and validates the JWT bearer token from the Authorization header.
-    Returns the decoded token payload dictionary.
-    """
-    if not credentials or not credentials.credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        payload = decode_access_token(credentials.credentials)
-        return payload
-    except TokenExpiredError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
-    except TokenInvalidError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
-
-
-async def require_admin(
-    current_user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Enforces that the authenticated user possesses the ADMIN role.
-    Raises HTTP 403 Forbidden for non-admin callers.
-    """
-    if current_user.get("role") != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
-    return current_user
 
 
 @router.post("/auth/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
@@ -143,7 +96,7 @@ async def login(credentials: LoginRequest):
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_user_account(
     payload: CreateUserRequest,
-    current_user: Dict[str, Any] = Depends(require_admin),
+    current_user: AuthenticatedUser = Depends(require_admin),
 ):
     """
     Provision a new user account on the cluster.
@@ -188,3 +141,14 @@ async def create_user_account(
         created_at=record["created_at"],
         is_active=record["is_active"],
     )
+
+
+@router.get("/auth/me", response_model=AuthenticatedUser, status_code=status.HTTP_200_OK)
+@router.get("/me", response_model=AuthenticatedUser, status_code=status.HTTP_200_OK, include_in_schema=False)
+async def get_my_profile(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Returns the authenticated user profile and claims attached to the active JWT session.
+    """
+    return current_user
