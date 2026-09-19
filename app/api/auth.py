@@ -15,6 +15,7 @@ from app.api.dependencies import (
     AuthenticatedUser,
     get_current_user,
     require_admin,
+    require_human_user,
     require_role,
 )
 from app.models.config import get_jwt_expiry_minutes
@@ -226,9 +227,11 @@ async def create_user_account(
 @router.get("/auth/me", response_model=AuthenticatedUser, status_code=status.HTTP_200_OK)
 @router.get("/me", response_model=AuthenticatedUser, status_code=status.HTTP_200_OK, include_in_schema=False)
 async def get_my_profile(
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(require_human_user),
 ):
     """
     Returns the authenticated user profile and claims attached to the active JWT session.
+    Restricted to human user accounts (USER or ADMIN); SYSTEM tokens cannot access user profiles.
     """
     return current_user
+

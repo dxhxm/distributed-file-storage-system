@@ -2,9 +2,10 @@ import os
 import shutil
 import hashlib
 import requests
-from fastapi import APIRouter, UploadFile, File, HTTPException, Response
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Response
 from fastapi.responses import FileResponse
 
+from app.api.dependencies import AuthenticatedUser, require_system
 from app.services.replication_service import replicate_file, is_node_alive
 from app.models.config import NODES, CURRENT_NODE
 
@@ -261,8 +262,11 @@ async def upload(file: UploadFile = File(...)):
 
 
 @router.post("/replicate")
-async def receive_replica(file: UploadFile = File(...)):
-    """Receive a replicated file from a peer node."""
+async def receive_replica(
+    file: UploadFile = File(...),
+    current_system: AuthenticatedUser = Depends(require_system),
+):
+    """Receive a replicated file from a peer node - Restricted to SYSTEM role inter-node callers."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 

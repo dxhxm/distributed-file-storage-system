@@ -265,3 +265,96 @@ def decode_refresh_token(
 
     return payload
 
+
+def create_system_token(
+    node_id: Optional[str] = None,
+    expires_delta: Optional[timedelta] = None,
+    secret_key: Optional[str] = None,
+    algorithm: Optional[str] = None,
+) -> str:
+    """
+    Creates and signs a dedicated service-to-service JWT carrying SYSTEM role for inter-node RPC.
+
+    Args:
+        node_id: Identifier of the origin node (defaults to NODE_NAME or CURRENT_NODE_URL).
+        expires_delta: Optional custom lifespan (default: 24 hours).
+        secret_key: Optional secret key override.
+        algorithm: Optional signing algorithm override (default: HS256).
+
+    Returns:
+        Signed JWT string with role='SYSTEM' and token_type='system'.
+    """
+    origin_node = node_id or os.environ.get("NODE_NAME") or os.environ.get("CURRENT_NODE_URL", "system-node")
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta if expires_delta is not None else timedelta(hours=24))
+
+    payload: Dict[str, Any] = {
+        "sub": str(origin_node),
+        "role": Role.SYSTEM.value,
+        "token_type": "system",
+        "iat": int(now.timestamp()),
+        "exp": int(expire.timestamp()),
+    }
+
+    key = secret_key or get_jwt_secret()
+    alg = algorithm or get_jwt_algorithm()
+
+    return jwt.encode(payload, key, algorithm=alg)
+
+
+def decode_system_token(
+    token: str,
+    secret_key: Optional[str] = None,
+    algorithm: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Decodes and validates a SYSTEM service-to-service token for inter-node communication.
+
+    Args:
+        token: The encoded JWT string.
+        secret_key: Optional secret key override.
+        algorithm: Optional algorithm override.
+
+    Returns:
+        Decoded token payload dictionary.
+
+    Raises:
+        TokenExpiredError: If the token has expired.
+        TokenInvalidError: If the signature is invalid or role is not SYSTEM.
+    """
+    if not isinstance(token, str) or not token.strip():
+        raise TokenInvalidError("System token must be a non-empty string")
+
+    key = secret_key or get_jwt_secret()
+    alg = algorithm or get_jwt_algorithm()
+
+    try:
+        payload = jwt.decode(
+            token,
+            key,
+            algorithms=[alg],
+            options={"require": ["sub", "role", "exp", "iat"]}
+        )
+    except jwt.ExpiredSignatureError as e:
+        raise TokenExpiredError("System token has expired") from e
+    except jwt.InvalidSignatureError as e:
+        raise TokenInvalidError("System token signature is invalid or tampered with") from e
+    except jwt.PyJWTError as e:
+        raise TokenInvalidError(f"Invalid or malformed system token: {str(e)}") from e
+
+    role = payload.get("role")
+    if role != Role.SYSTEM.value and role != "SYSTEM":
+        raise TokenInvalidError("Token does not carry the SYSTEM role claim")
+
+    return payload
+
+
+def get_system_auth_headers(node_id: Optional[str] = None) -> Dict[str, str]:
+    """
+    Generates standard HTTP Authorization headers bearing a valid SYSTEM service token.
+    Used by internal background tasks and inter-node RPC dispatchers.
+    """
+    token = create_system_token(node_id=node_id)
+    return {"Authorization": f"Bearer {token}"}
+
+

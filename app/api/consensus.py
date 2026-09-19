@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from app.services.consensus import ConsensusService
+from app.api.dependencies import AuthenticatedUser, require_system
 
 router = APIRouter()
 consensus_service = ConsensusService()
@@ -30,8 +31,11 @@ async def propose_state_change(request: Request):
     return consensus_service.propose(data)
 
 @router.post("/raft/request-vote")
-async def raft_request_vote(request: Request):
-    """Raft RequestVote RPC"""
+async def raft_request_vote(
+    request: Request,
+    current_system: AuthenticatedUser = Depends(require_system),
+):
+    """Raft RequestVote RPC - Restricted to SYSTEM role inter-node callers."""
     data = await request.json()
     return consensus_service.handle_request_vote(
         data.get("term"),
@@ -41,8 +45,11 @@ async def raft_request_vote(request: Request):
     )
 
 @router.post("/raft/append-entries")
-async def raft_append_entries(request: Request):
-    """Raft AppendEntries RPC"""
+async def raft_append_entries(
+    request: Request,
+    current_system: AuthenticatedUser = Depends(require_system),
+):
+    """Raft AppendEntries RPC - Restricted to SYSTEM role inter-node callers."""
     data = await request.json()
     return consensus_service.handle_append_entries(
         data.get("term"),
