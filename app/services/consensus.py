@@ -4,6 +4,7 @@ import threading
 import time
 import logging
 import random
+from app.services.jwt_service import get_system_auth_headers
 
 # Configure logger
 logging.basicConfig(
@@ -129,7 +130,8 @@ class ConsensusService:
                     "last_log_index": last_log_index,
                     "last_log_term": last_log_term
                 }
-                res = requests.post(f"{url}/raft/request-vote", json=payload, timeout=1.0)
+                headers = get_system_auth_headers(self.current_node)
+                res = requests.post(f"{url}/raft/request-vote", json=payload, headers=headers, timeout=1.0)
                 if res.status_code == 200:
                     data = res.json()
                     
@@ -200,7 +202,8 @@ class ConsensusService:
         }
         
         try:
-            res = requests.post(f"{url}/raft/append-entries", json=payload, timeout=1.0)
+            headers = get_system_auth_headers(self.current_node)
+            res = requests.post(f"{url}/raft/append-entries", json=payload, headers=headers, timeout=1.0)
             if res.status_code == 200:
                 self.node_status[peer] = "ALIVE"
                 data = res.json()

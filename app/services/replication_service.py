@@ -1,5 +1,6 @@
 import requests
 from app.models.config import NODES, CURRENT_NODE
+from app.services.jwt_service import get_system_auth_headers
 
 
 def is_node_alive(node):
@@ -12,7 +13,7 @@ def is_node_alive(node):
 
 
 def replicate_file(file_path, filename):
-    """Replicate a file to all alive peer nodes."""
+    """Replicate a file to all alive peer nodes with SYSTEM role authentication."""
     for node in NODES:
         if node == CURRENT_NODE:
             continue
@@ -25,7 +26,8 @@ def replicate_file(file_path, filename):
         try:
             with open(file_path, 'rb') as f:
                 files = {'file': (filename, f)}
-                response = requests.post(f"{node}/replicate", files=files)
+                headers = get_system_auth_headers()
+                response = requests.post(f"{node}/replicate", files=files, headers=headers)
 
             print(f"[REPLICATION] Sent to {node} - Status: {response.status_code}")
 

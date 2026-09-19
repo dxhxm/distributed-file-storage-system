@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.api.dependencies import AuthenticatedUser, require_system
 from app.services import time_sync
 from app.services.time_sync import fetch_remote_time, get_current_node_time
 from datetime import datetime
@@ -15,7 +16,11 @@ async def get_time():
             }
 
 @router.post("/sync-time")
-async def sync_time(target_time: float):
+async def sync_time(
+    target_time: float,
+    current_system: AuthenticatedUser = Depends(require_system),
+):
+    """Internal time synchronization RPC - Restricted to SYSTEM role inter-node callers."""
     return time_sync.synchronize_clock(target_time)
 
 @router.get("/fetch-neighbor/{node_id}")

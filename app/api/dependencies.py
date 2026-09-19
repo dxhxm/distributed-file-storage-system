@@ -125,3 +125,37 @@ def require_role(*allowed_roles: Union[str, Role]):
 
 # Pre-configured RBAC dependencies
 require_admin = require_role(Role.ADMIN, "ADMIN")
+require_user = require_role(Role.USER, "USER")
+
+
+async def require_human_user(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """
+    Dependency enforcing that the caller is a human user (USER or ADMIN).
+    Rejects SYSTEM service tokens with HTTP 403 Forbidden.
+    """
+    if current_user.role not in {Role.USER.value, "USER", Role.ADMIN.value, "ADMIN"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User session required; SYSTEM credentials not permitted on user routes",
+            headers={"X-Error-Code": "FORBIDDEN_USER_REQUIRED"},
+        )
+    return current_user
+
+
+async def require_system(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """
+    Dependency enforcing that the caller presents a valid SYSTEM-role service credential.
+    Rejects human user JWTs (USER / ADMIN) with HTTP 403 Forbidden.
+    """
+    if current_user.role != Role.SYSTEM.value and current_user.role != "SYSTEM":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System credential required for internal node RPC",
+            headers={"X-Error-Code": "FORBIDDEN_SYSTEM_REQUIRED"},
+        )
+    return current_user
+
