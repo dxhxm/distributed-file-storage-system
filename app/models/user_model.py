@@ -57,14 +57,22 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """
-    Schema for user authentication response upon successful login.
+    Schema for user authentication response upon successful login or token refresh.
     """
     access_token: str = Field(..., description="Signed JWT bearer access token")
+    refresh_token: Optional[str] = Field(default=None, description="Signed JWT refresh token")
     token_type: str = Field(default="bearer", description="Token authorization type")
     role: str = Field(..., description="Assigned user role (USER, ADMIN, SYSTEM)")
     username: str = Field(..., description="Username of the authenticated account")
     user_id: str = Field(..., description="Unique user identifier")
     expires_in_minutes: int = Field(..., description="Token lifespan duration in minutes")
+
+
+class RefreshTokenRequest(BaseModel):
+    """
+    Schema for refreshing access tokens via a valid refresh token.
+    """
+    refresh_token: str = Field(..., min_length=1, description="Valid JWT refresh token")
 
 
 class CreateUserRequest(BaseModel):

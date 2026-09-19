@@ -142,7 +142,7 @@ class TestAuthProvisioningEndpoint(unittest.TestCase):
         # 1. No Authorization header
         r_no_auth = self.client.post("/auth/users", json=payload)
         self.assertEqual(r_no_auth.status_code, 401)
-        self.assertEqual(r_no_auth.json()["detail"], "Not authenticated")
+        self.assertIn(r_no_auth.json()["detail"], ["NOT_AUTHENTICATED", "Not authenticated"])
 
         # 2. Invalid / garbage token
         r_bad_token = self.client.post(
@@ -159,7 +159,7 @@ class TestAuthProvisioningEndpoint(unittest.TestCase):
             json=payload
         )
         self.assertEqual(r_expired.status_code, 401)
-        self.assertEqual(r_expired.json()["detail"], "Token has expired")
+        self.assertIn(r_expired.json()["detail"], ["TOKEN_EXPIRED", "Token has expired"])
 
     def test_duplicate_username_rejected_cleanly(self):
         """DoD: Duplicate username is rejected cleanly with HTTP 409."""

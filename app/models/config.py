@@ -55,6 +55,17 @@ def get_admin_bootstrap_password() -> Optional[str]:
     return None
 
 
+def get_jwt_refresh_expiry_days() -> int:
+    """
+    Retrieves the configured refresh token validity duration in days (default: 7).
+    """
+    val = os.environ.get("JWT_REFRESH_EXPIRY_DAYS", "7")
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 7
+
+
 def validate_auth_config() -> None:
     """
     Validates mandatory authentication configuration at startup.

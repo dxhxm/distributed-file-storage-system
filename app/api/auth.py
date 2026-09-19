@@ -22,12 +22,23 @@ from app.models.user_model import (
     CreateUserRequest,
     LoginRequest,
     LoginResponse,
+    RefreshTokenRequest,
     User,
     UserResponse,
 )
 from app.services.auth_service import hash_password, verify_password
-from app.services.jwt_service import create_access_token
-from app.services.user_storage import create_user, get_user_by_username
+from app.services.jwt_service import (
+    TokenExpiredError,
+    TokenInvalidError,
+    create_access_token,
+    create_refresh_token,
+    decode_refresh_token,
+)
+from app.services.user_storage import (
+    create_user,
+    get_user_by_id,
+    get_user_by_username,
+)
 
 router = APIRouter(tags=["Authentication"])
 
@@ -40,7 +51,7 @@ _DUMMY_HASH = "$2b$12$0Gq0v3mR9Jq6Y7zL5H2bte7wX1a3k4j5l6m7n8o9p0q1r2s3t4u5v"
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
 async def login(credentials: LoginRequest):
     """
-    Authenticate user with username and password, returning a signed JWT access token.
+    Authenticate user with username and password, returning a signed JWT access token and refresh token.
 
     Security guarantees:
     - Zero user-enumeration: Returns identical 401 error for non-existent users and wrong passwords.
@@ -75,15 +86,84 @@ async def login(credentials: LoginRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Issue signed JWT access token
-    token = create_access_token(
+    # Issue signed JWT access token and refresh token
+    access_token = create_access_token(
+        user_id=user["id"],
+        role=user["role"],
+        username=user["username"]
+    )
+    refresh_token = create_refresh_token(
         user_id=user["id"],
         role=user["role"],
         username=user["username"]
     )
 
     return LoginResponse(
-        access_token=token,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        role=user["role"],
+        username=user["username"],
+        user_id=user["id"],
+        expires_in_minutes=get_jwt_expiry_minutes(),
+    )
+
+
+@router.post("/auth/refresh", response_model=LoginResponse, status_code=status.HTTP_200_OK)
+@router.post("/refresh", response_model=LoginResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+async def refresh_access_token(payload: RefreshTokenRequest):
+    """
+    Exchange a valid, unexpired refresh token for a newly issued access token.
+    Validates that the user account exists and remains active/non-revoked.
+    """
+    try:
+        claims = decode_refresh_token(payload.refresh_token)
+    except TokenExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+            headers={"WWW-Authenticate": "Bearer error=\"token_expired\""},
+        )
+    except TokenInvalidError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid refresh token: {str(exc)}",
+            headers={"WWW-Authenticate": "Bearer error=\"invalid_token\""},
+        )
+
+    user_id = claims["sub"]
+    user = get_user_by_id(user_id)
+
+    # Reject non-existent or inactive / revoked users
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account is disabled, inactive, or revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Issue fresh access token and rotated refresh token with current user record state
+    new_access_token = create_access_token(
+        user_id=user["id"],
+        role=user["role"],
+        username=user["username"],
+    )
+    new_refresh_token = create_refresh_token(
+        user_id=user["id"],
+        role=user["role"],
+        username=user["username"],
+    )
+
+    return LoginResponse(
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
         token_type="bearer",
         role=user["role"],
         username=user["username"],
