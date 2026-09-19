@@ -27,7 +27,7 @@ class TestAuthConfig(unittest.TestCase):
 
     def test_env_example_documents_all_auth_variables(self):
         """DoD: .env.example documents every new auth variable per Section 34."""
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         env_example_path = os.path.join(project_root, ".env.example")
 
         self.assertTrue(os.path.exists(env_example_path), ".env.example must exist in project root")
@@ -46,7 +46,7 @@ class TestAuthConfig(unittest.TestCase):
 
     def test_gitignore_protects_env_files(self):
         """DoD: No secret value committed to Git; .gitignore blocks .env files."""
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         gitignore_path = os.path.join(project_root, ".gitignore")
 
         self.assertTrue(os.path.exists(gitignore_path), ".gitignore must exist")

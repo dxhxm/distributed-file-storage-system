@@ -151,7 +151,7 @@ class TestAuthStorageSchema(unittest.TestCase):
 
     def test_schema_documentation_present(self):
         """DoD: Schema documented alongside existing metadata schema in docs/schema.md."""
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         schema_doc_path = os.path.join(project_root, "docs", "schema.md")
 
         self.assertTrue(os.path.exists(schema_doc_path), "docs/schema.md must exist")
