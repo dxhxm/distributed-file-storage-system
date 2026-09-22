@@ -99,24 +99,50 @@ async def get_current_user(
 
 def require_role(*allowed_roles: Union[str, Role]):
     """
-    Returns a dependency enforcing that the caller belongs to at least one of the allowed roles.
+    Returns a FastAPI dependency enforcing that the caller belongs to at least one of the allowed roles.
+
+    Composes cleanly with `get_current_user` to ensure caller is authenticated and possesses
+    one of the specified roles (USER, ADMIN, SYSTEM).
+
+    - If caller is unauthenticated (missing/invalid/expired token): `get_current_user` raises 401.
+    - If caller is authenticated but role is not allowed: raises HTTP 403 Forbidden with 'X-Error-Code: FORBIDDEN'.
     """
-    normalized_roles: Set[str] = {
-        r.value if hasattr(r, "value") else str(r) for r in allowed_roles
-    }
+    if not allowed_roles:
+        raise ValueError("require_role requires at least one allowed role specification")
+
+    normalized_roles: Set[str] = set()
+    for r in allowed_roles:
+        if isinstance(r, Role):
+            normalized_roles.add(r.value)
+        elif isinstance(r, str):
+            normalized_roles.add(r.strip().upper())
+        elif hasattr(r, "value"):
+            normalized_roles.add(str(r.value).strip().upper())
+        else:
+            normalized_roles.add(str(r).strip().upper())
 
     async def role_checker(
         current_user: AuthenticatedUser = Depends(get_current_user),
     ) -> AuthenticatedUser:
-        if current_user.role not in normalized_roles:
-            detail_msg = (
-                "Admin privileges required"
-                if normalized_roles == {"ADMIN"}
-                else "Forbidden: Insufficient privileges"
-            )
+        user_role = current_user.role.strip().upper() if isinstance(current_user.role, str) else str(current_user.role)
+        if user_role not in normalized_roles:
+            if normalized_roles == {"ADMIN"}:
+                detail_msg = "Admin privileges required"
+                err_code = "FORBIDDEN"
+            elif normalized_roles == {"SYSTEM"}:
+                detail_msg = "System credential required for internal node RPC"
+                err_code = "FORBIDDEN_SYSTEM_REQUIRED"
+            elif normalized_roles == {"USER"}:
+                detail_msg = "User privileges required"
+                err_code = "FORBIDDEN_USER_REQUIRED"
+            else:
+                detail_msg = "Forbidden: Insufficient privileges"
+                err_code = "FORBIDDEN"
+
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=detail_msg,
+                headers={"X-Error-Code": err_code},
             )
         return current_user
 
@@ -124,8 +150,9 @@ def require_role(*allowed_roles: Union[str, Role]):
 
 
 # Pre-configured RBAC dependencies
-require_admin = require_role(Role.ADMIN, "ADMIN")
-require_user = require_role(Role.USER, "USER")
+require_admin = require_role(Role.ADMIN)
+require_user = require_role(Role.USER)
+require_system = require_role(Role.SYSTEM)
 
 
 async def require_human_user(
@@ -135,7 +162,8 @@ async def require_human_user(
     Dependency enforcing that the caller is a human user (USER or ADMIN).
     Rejects SYSTEM service tokens with HTTP 403 Forbidden.
     """
-    if current_user.role not in {Role.USER.value, "USER", Role.ADMIN.value, "ADMIN"}:
+    user_role = current_user.role.strip().upper() if isinstance(current_user.role, str) else str(current_user.role)
+    if user_role not in {Role.USER.value, Role.ADMIN.value}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User session required; SYSTEM credentials not permitted on user routes",
@@ -144,18 +172,4 @@ async def require_human_user(
     return current_user
 
 
-async def require_system(
-    current_user: AuthenticatedUser = Depends(get_current_user),
-) -> AuthenticatedUser:
-    """
-    Dependency enforcing that the caller presents a valid SYSTEM-role service credential.
-    Rejects human user JWTs (USER / ADMIN) with HTTP 403 Forbidden.
-    """
-    if current_user.role != Role.SYSTEM.value and current_user.role != "SYSTEM":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="System credential required for internal node RPC",
-            headers={"X-Error-Code": "FORBIDDEN_SYSTEM_REQUIRED"},
-        )
-    return current_user
 
