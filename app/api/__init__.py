@@ -8,7 +8,10 @@ from app.api.dependencies import (
     AuthenticatedUser,
     get_current_user,
     require_admin,
+    require_human_user,
     require_role,
+    require_system,
+    require_user,
 )
 
 __all__ = [
@@ -20,5 +23,9 @@ __all__ = [
     "AuthenticatedUser",
     "get_current_user",
     "require_admin",
+    "require_human_user",
     "require_role",
+    "require_system",
+    "require_user",
 ]
+
