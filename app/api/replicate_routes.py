@@ -5,7 +5,9 @@ import requests
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Response
 from fastapi.responses import FileResponse
 
-from app.api.dependencies import AuthenticatedUser, require_system
+from app.api.dependencies import AuthenticatedUser, require_role, require_system
+from app.models.user_model import Role
+from app.services.jwt_service import get_system_auth_headers
 from app.services.replication_service import replicate_file, is_node_alive
 from app.models.config import NODES, CURRENT_NODE
 
@@ -18,7 +20,10 @@ os.makedirs(STORAGE_DIR, exist_ok=True)
 
 
 @router.get("/files/{file_id}")
-async def download_file(file_id: str):
+async def download_file(
+    file_id: str,
+    current_user: AuthenticatedUser = Depends(require_role(Role.USER, Role.ADMIN, Role.SYSTEM)),
+):
     """Download a file by file_id or filename, proxying across alive replica nodes if needed."""
     storage_dir = os.environ.get("STORAGE_DIR", STORAGE_DIR)
     os.makedirs(storage_dir, exist_ok=True)
@@ -72,7 +77,8 @@ async def download_file(file_id: str):
     for node_url in NODES:
         if node_url != CURRENT_NODE and is_node_alive(node_url):
             try:
-                resp = requests.get(f"{node_url}/files/{file_id}", timeout=3)
+                headers = get_system_auth_headers(CURRENT_NODE)
+                resp = requests.get(f"{node_url}/files/{file_id}", headers=headers, timeout=3)
                 if resp.status_code == 200:
                     return Response(
                         content=resp.content,
@@ -90,7 +96,10 @@ async def download_file(file_id: str):
 
 
 @router.delete("/files/{file_id}")
-async def delete_file(file_id: str):
+async def delete_file(
+    file_id: str,
+    current_user: AuthenticatedUser = Depends(require_role(Role.USER, Role.ADMIN, Role.SYSTEM)),
+):
     """Delete a file and remove its replicas across all cluster nodes."""
     storage_dir = os.environ.get("STORAGE_DIR", STORAGE_DIR)
     os.makedirs(storage_dir, exist_ok=True)
@@ -145,7 +154,8 @@ async def delete_file(file_id: str):
     for node_url in NODES:
         if node_url != CURRENT_NODE and is_node_alive(node_url):
             try:
-                resp = requests.delete(f"{node_url}/files/{target_filename}", timeout=2)
+                headers = get_system_auth_headers(CURRENT_NODE)
+                resp = requests.delete(f"{node_url}/files/{target_filename}", headers=headers, timeout=2)
                 if resp.status_code == 200:
                     deleted_any = True
             except Exception:
@@ -243,7 +253,10 @@ async def list_files():
 
 @router.post("/files/upload")
 @router.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(
+    file: UploadFile = File(...),
+    current_user: AuthenticatedUser = Depends(require_role(Role.USER, Role.ADMIN, Role.SYSTEM)),
+):
     """Upload a file and replicate it to peer nodes."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -278,4 +291,5 @@ async def receive_replica(
         shutil.copyfileobj(file.file, f)
 
     return {"message": "File replicated successfully", "filename": file.filename}
+
 
