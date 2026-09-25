@@ -53,13 +53,16 @@ def update_node_status(node_name: str, status: str) -> bool:
 def check_node_health(url: str, retries: int = 3) -> str:
     for _ in range(retries):
         try:
-            response = httpx.get(f"{url}/health", timeout=2.0)
+            from app.services.jwt_service import get_system_auth_headers
+            headers = get_system_auth_headers()
+            response = httpx.get(f"{url}/health", headers=headers, timeout=2.0)
             if response.status_code == 200:
                 return "ALIVE"
         except Exception:
             pass
 
     return "DEAD"
+
 
 
 def check_all_nodes() -> Dict[str, str]:
