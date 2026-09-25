@@ -98,7 +98,7 @@ def test_delete_flow():
     print(f"  ✓ PASS: Deleting non-existent file returns 404 with detail: '{detail}'")
 
     # 5. Verify file is no longer in GET /files
-    res_list = client.get("/files")
+    res_list = client.get("/files", headers=user_headers)
     assert res_list.status_code == 200
     files = res_list.json().get("files", [])
     assert not any(f.get("file_id") == file_id1 for f in files), f"{file_id1} should not appear in /files"

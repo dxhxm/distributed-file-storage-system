@@ -67,9 +67,18 @@ File metadata tracks physical file chunks, replica placement across cluster node
 | `status` | `TEXT` | Replication state: `'REPLICATED'` (≥ 2 replicas) or `'SYNCING'` (< 2 replicas). |
 | `updated_at` | `TEXT` | ISO 8601 UTC timestamp of last replication or mutation. |
 
+## 3. File Access & Storage Model
+
+DFSS employs a **Shared Collaborative Cluster File Storage Policy**:
+- **Namespace Sharing**: The cluster maintains a unified namespace where all stored files are shared across all authenticated accounts (`USER` and `ADMIN`).
+- **Authorization Enforcement**: Any authenticated user (`USER` or `ADMIN`) may upload new files, retrieve the ledger of stored files (`GET /files`), download any file/replica (`GET /files/{file_id}`), and delete any file (`DELETE /files/{file_id}`).
+- **Authentication Gate**: All file endpoints strictly mandate valid JWT tokens, returning `HTTP 401 Unauthorized` for missing, expired, or malformed credentials.
+- **Node Replication Protection**: Inter-node replication (`POST /replicate`) is restricted to internal `SYSTEM` service tokens.
+
 ---
 
-## 3. Schema Invariants & Security Principles
+## 4. Schema Invariants & Security Principles
 1. **Never Store Plaintext Credentials**: Only cryptographically salted hashes produced via `hash_password()` are accepted and written to `users.hashed_password`.
 2. **Unique Username Enforcement**: Database-level unique constraint (`idx_users_username`) guarantees no duplicate account creation across nodes.
 3. **No Circular Schema Dependencies**: Database access and Pydantic validation are decoupled into separate modular layers (`app.models.user_model` and `app.services.user_storage`).
+4. **Access Control Consistency**: File access rules are enforced identically at the API route dependency layer (`require_role`) and validated across cluster operations.

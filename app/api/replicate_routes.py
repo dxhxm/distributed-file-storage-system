@@ -175,7 +175,9 @@ async def delete_file(
 
 
 @router.get("/files")
-async def list_files():
+async def list_files(
+    current_user: AuthenticatedUser = Depends(require_role(Role.USER, Role.ADMIN, Role.SYSTEM)),
+):
     """List all stored files with replica distribution, size, and health status."""
     try:
         from app.api.consensus import consensus_service

@@ -147,7 +147,7 @@ class TestFileOperationsAuthRBAC(unittest.TestCase):
         self.assertEqual(res_upload.json().get("filename"), filename)
 
         # Verify file is listed
-        res_list = self.client.get("/files")
+        res_list = self.client.get("/files", headers=self.user_headers)
         self.assertEqual(res_list.status_code, 200)
         listed_files = res_list.json().get("files", [])
         self.assertTrue(any(f.get("name") == filename for f in listed_files))
