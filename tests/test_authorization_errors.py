@@ -119,6 +119,8 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
                     res = self.client.post(path)
             elif method == "DELETE":
                 res = self.client.delete(path)
+            else:
+                self.fail(f"Unsupported HTTP method: {method}")
 
             self.assertEqual(
                 res.status_code, 401,
