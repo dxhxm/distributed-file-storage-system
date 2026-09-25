@@ -8,8 +8,16 @@ Automated test suite for GET /files/{file_id} download endpoint:
 """
 
 import os
+import sys
 import hashlib
 from fastapi.testclient import TestClient
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-for-standalone-tests-2026-64-bytes-secure")
+os.environ.setdefault("JWT_EXPIRY_MINUTES", "60")
 
 # Ensure test storage directories exist
 os.makedirs("Storage", exist_ok=True)
@@ -17,13 +25,25 @@ os.makedirs(os.path.join("nodes", "Node2", "Storage"), exist_ok=True)
 os.makedirs(os.path.join("nodes", "Node3", "Storage"), exist_ok=True)
 
 from app.main import app
+from app.models.user_model import Role
+from app.services.jwt_service import create_access_token
+
 
 client = TestClient(app)
 
 def test_download_flow():
     print("\n=== Running DFSS File Download Backend Tests ===\n")
 
-    # 1. Test local file download
+    # Generate test USER auth token
+    user_token = create_access_token(user_id="test-user-dl-1", role=Role.USER, username="dl_user")
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Test unauthenticated request returns 401
+    res_unauth = client.get("/files/file-any")
+    assert res_unauth.status_code == 401, f"Expected 401 for unauthenticated request, got {res_unauth.status_code}"
+    print("  ✓ PASS: Unauthenticated GET /files/{file_id} returns HTTP 401 Unauthorized.")
+
+    # 2. Test local file download with authenticated user
     test_filename = "download_test_local.txt"
     test_content = b"Distributed fault-tolerant file storage system content payload 12345"
     local_path = os.path.join("Storage", test_filename)
@@ -33,19 +53,19 @@ def test_download_flow():
     file_id = f"file-{hashlib.md5(test_filename.encode()).hexdigest()[:8]}"
 
     # Download by file_id
-    res_id = client.get(f"/files/{file_id}")
+    res_id = client.get(f"/files/{file_id}", headers=user_headers)
     assert res_id.status_code == 200, f"Expected 200, got {res_id.status_code}"
     assert res_id.content == test_content, "Downloaded content must match written payload"
     assert "attachment" in res_id.headers.get("content-disposition", "").lower()
     print("  ✓ PASS: Direct local file download by file_id succeeds with correct content & headers.")
 
     # Download by filename
-    res_name = client.get(f"/files/{test_filename}")
+    res_name = client.get(f"/files/{test_filename}", headers=user_headers)
     assert res_name.status_code == 200, f"Expected 200, got {res_name.status_code}"
     assert res_name.content == test_content
     print("  ✓ PASS: Direct local file download by filename succeeds.")
 
-    # 2. Test cross-node replica fallback (file only in Node2 Storage)
+    # 3. Test cross-node replica fallback (file only in Node2 Storage)
     peer_filename = "peer_replica_file.bin"
     peer_content = b"Binary replica stored exclusively on Node B"
     peer_path = os.path.join("nodes", "Node2", "Storage", peer_filename)
@@ -58,14 +78,14 @@ def test_download_flow():
     if os.path.exists(os.path.join("Storage", peer_filename)):
         os.remove(os.path.join("Storage", peer_filename))
 
-    res_peer = client.get(f"/files/{peer_file_id}")
+    res_peer = client.get(f"/files/{peer_file_id}", headers=user_headers)
     assert res_peer.status_code == 200, f"Expected 200 from replica fallback, got {res_peer.status_code}"
     assert res_peer.content == peer_content, "Replica content must match peer storage"
     print("  ✓ PASS: Serving node retrieves file from peer replica node when local copy is absent.")
 
-    # 3. Test missing replica error handling (HTTP 404 with explicit systems message)
+    # 4. Test missing replica error handling (HTTP 404 with explicit systems message)
     missing_id = "file-deadbeef"
-    res_missing = client.get(f"/files/{missing_id}")
+    res_missing = client.get(f"/files/{missing_id}", headers=user_headers)
     assert res_missing.status_code == 404, f"Expected 404 for missing file, got {res_missing.status_code}"
     detail = res_missing.json().get("detail", "")
     assert "File replica unavailable" in detail, f"Expected explicit replica error detail, got: {detail}"
@@ -77,7 +97,8 @@ def test_download_flow():
     if os.path.exists(peer_path):
         os.remove(peer_path)
 
-    print("\n=== All Backend File Download Tests Passed Successfully (3/3)! ===\n")
+    print("\n=== All Backend File Download Tests Passed Successfully (4/4)! ===\n")
 
 if __name__ == "__main__":
     test_download_flow()
+

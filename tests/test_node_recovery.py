@@ -59,6 +59,9 @@ def cleanup_ports():
 
 cleanup_ports()
 
+os.environ.setdefault("JWT_SECRET", "local-dev-cluster-node-jwt-secret-key-2026-64-bytes-sample")
+from app.services.jwt_service import get_system_auth_headers
+
 def start_node(name, script):
     print(f"[TEST] Starting {name}...")
     proc = subprocess.Popen([PYTHON, script], cwd=".", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -67,15 +70,17 @@ def start_node(name, script):
 
 def wait_for_node(name, url, timeout=10):
     deadline = time.time() + timeout
+    headers = get_system_auth_headers()
     while time.time() < deadline:
         try:
-            r = requests.get(f"{url}/health", timeout=1)
+            r = requests.get(f"{url}/health", headers=headers, timeout=1)
             if r.status_code == 200:
                 return True
         except:
             pass
         time.sleep(0.5)
     return False
+
 
 def get_leader(url):
     try:
@@ -108,10 +113,15 @@ for name, script in scripts.items():
     start_node(name, script)
 
 all_up = all(wait_for_node(name, url) for name, url in BASE.items())
-if not all_up: sys.exit(1)
+if not all_up:
+    print("[TEST] Failed to start all nodes.")
+    for p in processes.values():
+        try: p.terminate()
+        except: pass
+    sys.exit(1)
 
 leader = None
-for _ in range(10):
+for _ in range(15):
     leaders = set()
     for n, u in BASE.items():
         l = get_leader(u)
@@ -120,6 +130,13 @@ for _ in range(10):
         leader = list(leaders)[0]
         break
     time.sleep(1)
+
+if not leader or leader not in BASE:
+    print(f"[TEST] Leader election failed or timed out. Got leader: {leader}")
+    for p in processes.values():
+        try: p.terminate()
+        except: pass
+    sys.exit(1)
 
 print(f"[TEST] Cluster Leader: {leader}")
 

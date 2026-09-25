@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from app.services.consensus import ConsensusService
-from app.api.dependencies import AuthenticatedUser, require_system
+from app.api.dependencies import AuthenticatedUser, require_admin, require_system
 
 router = APIRouter()
 consensus_service = ConsensusService()
@@ -74,7 +74,9 @@ def get_node_status():
     return {status_map.get(k, k): v for k, v in raw_status.items()}
 
 @router.post("/fail-leader")
-def fail_leader():
-    """Simulate leader failure by stopping its background loop"""
+def fail_leader(
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """Simulate leader failure by stopping its background loop - Restricted to ADMIN."""
     consensus_service.running = False
     return {"message": "Node background thread stopped. It will no longer respond to Raft elections or heartbeats."}

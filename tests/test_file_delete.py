@@ -9,8 +9,16 @@ Automated test suite for DELETE /files/{file_id} endpoint:
 """
 
 import os
+import sys
 import hashlib
 from fastapi.testclient import TestClient
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-for-standalone-tests-2026-64-bytes-secure")
+os.environ.setdefault("JWT_EXPIRY_MINUTES", "60")
 
 # Ensure test storage directories exist
 os.makedirs("Storage", exist_ok=True)
@@ -19,13 +27,25 @@ os.makedirs(os.path.join("nodes", "Node2", "Storage"), exist_ok=True)
 os.makedirs(os.path.join("nodes", "Node3", "Storage"), exist_ok=True)
 
 from app.main import app
+from app.models.user_model import Role
+from app.services.jwt_service import create_access_token
+
 
 client = TestClient(app)
 
 def test_delete_flow():
     print("\n=== Running DFSS File Delete Backend Tests ===\n")
 
-    # 1. Test local file deletion by file_id
+    # Generate test USER auth token
+    user_token = create_access_token(user_id="test-user-del-1", role=Role.USER, username="del_user")
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Test unauthenticated delete returns 401
+    res_unauth = client.delete("/files/file-any")
+    assert res_unauth.status_code == 401, f"Expected 401 for unauthenticated delete, got {res_unauth.status_code}"
+    print("  ✓ PASS: Unauthenticated DELETE /files/{file_id} returns HTTP 401 Unauthorized.")
+
+    # 2. Test local file deletion by file_id with authenticated user
     filename1 = "test_delete_local.txt"
     content = b"Data to be deleted by test_file_delete"
     local_path = os.path.join("Storage", filename1)
@@ -38,7 +58,7 @@ def test_delete_flow():
     assert os.path.exists(local_path), "File must exist before deletion"
 
     # Delete by file_id
-    res_del = client.delete(f"/files/{file_id1}")
+    res_del = client.delete(f"/files/{file_id1}", headers=user_headers)
     assert res_del.status_code == 200, f"Expected 200, got {res_del.status_code}: {res_del.text}"
     del_json = res_del.json()
     assert del_json.get("message") == "File deleted successfully"
@@ -46,7 +66,7 @@ def test_delete_flow():
     assert not os.path.exists(local_path), "File must be removed from local storage"
     print("  ✓ PASS: Direct local file deletion by file_id removes file from storage.")
 
-    # 2. Test multi-node replica deletion
+    # 3. Test multi-node replica deletion
     filename2 = "test_delete_replicated.dat"
     content2 = b"Replicated binary payload"
     path_local = os.path.join("Storage", filename2)
@@ -62,30 +82,31 @@ def test_delete_flow():
 
     file_id2 = f"file-{hashlib.md5(filename2.encode()).hexdigest()[:8]}"
 
-    res_del_rep = client.delete(f"/files/{file_id2}")
+    res_del_rep = client.delete(f"/files/{file_id2}", headers=user_headers)
     assert res_del_rep.status_code == 200, f"Expected 200, got {res_del_rep.status_code}"
     assert not os.path.exists(path_local), "Local copy must be deleted"
     assert not os.path.exists(path_node2), "Node2 replica must be deleted"
     assert not os.path.exists(path_node3), "Node3 replica must be deleted"
     print("  ✓ PASS: Replicated file deletion removes all copies across cluster nodes.")
 
-    # 3. Test deleting non-existent file returns explicit 404
+    # 4. Test deleting non-existent file returns explicit 404
     missing_id = "file-nonexistent999"
-    res_missing = client.delete(f"/files/{missing_id}")
+    res_missing = client.delete(f"/files/{missing_id}", headers=user_headers)
     assert res_missing.status_code == 404, f"Expected 404 for missing file, got {res_missing.status_code}"
     detail = res_missing.json().get("detail", "")
     assert "File not found" in detail, f"Expected 'File not found' in detail, got: {detail}"
     print(f"  ✓ PASS: Deleting non-existent file returns 404 with detail: '{detail}'")
 
-    # 4. Verify file is no longer in GET /files
-    res_list = client.get("/files")
+    # 5. Verify file is no longer in GET /files
+    res_list = client.get("/files", headers=user_headers)
     assert res_list.status_code == 200
     files = res_list.json().get("files", [])
     assert not any(f.get("file_id") == file_id1 for f in files), f"{file_id1} should not appear in /files"
     assert not any(f.get("file_id") == file_id2 for f in files), f"{file_id2} should not appear in /files"
     print("  ✓ PASS: Deleted files no longer appear in GET /files ledger.")
 
-    print("\n=== All Backend File Delete Tests Passed Successfully (4/4)! ===\n")
+    print("\n=== All Backend File Delete Tests Passed Successfully (5/5)! ===\n")
 
 if __name__ == "__main__":
     test_delete_flow()
+

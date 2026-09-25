@@ -67,7 +67,7 @@ async def login(credentials: LoginRequest):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "X-Error-Code": "INVALID_CREDENTIALS"},
         )
 
     # Verify password hash
@@ -76,7 +76,7 @@ async def login(credentials: LoginRequest):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "X-Error-Code": "INVALID_CREDENTIALS"},
         )
 
     # Reject inactive accounts
@@ -84,8 +84,9 @@ async def login(credentials: LoginRequest):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Account is disabled or inactive",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "X-Error-Code": "ACCOUNT_DISABLED"},
         )
+
 
     # Issue signed JWT access token and refresh token
     access_token = create_access_token(
