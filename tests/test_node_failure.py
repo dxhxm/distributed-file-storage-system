@@ -67,14 +67,16 @@ def start_node(name, script):
         stderr=subprocess.STDOUT,
     )
     processes[name] = proc
-    return proc
+os.environ.setdefault("JWT_SECRET", "local-dev-cluster-node-jwt-secret-key-2026-64-bytes-sample")
+from app.services.jwt_service import get_system_auth_headers
 
 
 def wait_for_node(name, url, timeout=15):
     deadline = time.time() + timeout
+    headers = get_system_auth_headers()
     while time.time() < deadline:
         try:
-            r = requests.get(f"{url}/health", timeout=2)
+            r = requests.get(f"{url}/health", headers=headers, timeout=2)
             if r.status_code == 200:
                 print(f"[TEST] {name} is UP at {url}")
                 return True
@@ -87,12 +89,14 @@ def wait_for_node(name, url, timeout=15):
 
 def check_health(name, url):
     try:
-        r = requests.get(f"{url}/health", timeout=2)
+        headers = get_system_auth_headers()
+        r = requests.get(f"{url}/health", headers=headers, timeout=2)
         status = "HEALTHY" if r.status_code == 200 else f"HTTP {r.status_code}"
     except Exception as e:
         status = f"UNREACHABLE ({e})"
     print(f"  {name}: {status}")
     return status == "HEALTHY"
+
 
 
 def get_leader(name, url):

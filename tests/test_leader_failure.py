@@ -57,7 +57,8 @@ def cleanup_ports():
     time.sleep(1)
 
 
-cleanup_ports()
+os.environ.setdefault("JWT_SECRET", "local-dev-cluster-node-jwt-secret-key-2026-64-bytes-sample")
+from app.services.jwt_service import get_system_auth_headers
 
 def start_node(name, script):
     print(f"[TEST] Starting {name}...")
@@ -67,15 +68,17 @@ def start_node(name, script):
 
 def wait_for_node(name, url, timeout=10):
     deadline = time.time() + timeout
+    headers = get_system_auth_headers()
     while time.time() < deadline:
         try:
-            r = requests.get(f"{url}/health", timeout=1)
+            r = requests.get(f"{url}/health", headers=headers, timeout=1)
             if r.status_code == 200:
                 return True
         except Exception:
             pass
         time.sleep(0.5)
     return False
+
 
 def get_leader(url):
     try:
