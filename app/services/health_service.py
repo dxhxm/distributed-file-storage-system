@@ -28,6 +28,8 @@ last_heartbeats: Dict[str, float] = {
     "nodeC": time.time()
 }
 
+HEALTH_CHECK_INTERVAL: float = 5.0
+
 
 def _get_consensus_service() -> Optional[Any]:
     try:
@@ -162,7 +164,7 @@ def check_all_nodes() -> Dict[str, str]:
 def heartbeat_loop() -> None:
     while True:
         check_all_nodes()
-        time.sleep(5)  # every 5 seconds
+        time.sleep(HEALTH_CHECK_INTERVAL)
 
 
 def start_heartbeat() -> None:

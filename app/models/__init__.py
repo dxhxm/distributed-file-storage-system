@@ -16,6 +16,11 @@ from app.models.node_model import (
     AddNodeRequest,
     UpdateNodeRequest,
 )
+from app.models.cluster_config_model import (
+    ClusterConfig,
+    UpdateClusterConfigRequest,
+    ClusterConfigResponse,
+)
 
 __all__ = [
     "Role",
@@ -27,4 +32,7 @@ __all__ = [
     "NodeActionRequest",
     "AddNodeRequest",
     "UpdateNodeRequest",
+    "ClusterConfig",
+    "UpdateClusterConfigRequest",
+    "ClusterConfigResponse",
 ]

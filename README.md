@@ -102,6 +102,7 @@ DFSS operates on a **Shared Collaborative Cluster Storage Model**:
 | `/replicate` | `POST` | `SYSTEM` | Inter-node file replication | `401` / `403 Forbidden` |
 | `/health` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Node health status | `401 Unauthorized` |
 | `/cluster/status` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Cluster topology & node states | `401 Unauthorized` |
+| `/cluster/config` | `GET` / `POST` / `PUT` | `ADMIN` | View and mutate cluster configuration tunables | `401` / `403 Forbidden` |
 | `/nodes` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Node inventory | `401 Unauthorized` |
 | `/nodes/update` | `POST` | `ADMIN` | Mutate cluster node configuration | `401` / `403 Forbidden` |
 | `/nodes/cordon`, `/nodes/{id}/cordon` | `POST` | `ADMIN` | Cordon node (maintenance mode) | `401` / `403 Forbidden` |

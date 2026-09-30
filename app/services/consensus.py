@@ -4,6 +4,7 @@ import threading
 import time
 import logging
 import random
+from typing import Optional, Dict, Any, Tuple
 from app.services.jwt_service import get_system_auth_headers
 
 # Configure logger
@@ -317,3 +318,64 @@ class ConsensusService:
             
         threading.Thread(target=self._send_heartbeats_unlocked, daemon=True).start()
         return {"success": True, "index": idx, "term": self.current_term}
+
+    def get_cluster_config(self) -> Dict[str, float]:
+        """
+        Returns the active cluster configuration tunables.
+        """
+        from app.services import health_service
+        with self.lock:
+            min_t, max_t = self.election_timeout_range
+            return {
+                "election_timeout_min": float(min_t),
+                "election_timeout_max": float(max_t),
+                "heartbeat_interval": float(self.heartbeat_interval),
+                "health_check_interval": float(getattr(health_service, "HEALTH_CHECK_INTERVAL", 5.0)),
+            }
+
+    def update_cluster_config(
+        self,
+        election_timeout_min: Optional[float] = None,
+        election_timeout_max: Optional[float] = None,
+        heartbeat_interval: Optional[float] = None,
+        health_check_interval: Optional[float] = None,
+    ) -> Dict[str, float]:
+        """
+        Updates cluster configuration tunables with strict validation.
+        """
+        from app.services import health_service
+        with self.lock:
+            cur_min, cur_max = self.election_timeout_range
+            new_min = float(election_timeout_min) if election_timeout_min is not None else cur_min
+            new_max = float(election_timeout_max) if election_timeout_max is not None else cur_max
+            new_hb = float(heartbeat_interval) if heartbeat_interval is not None else self.heartbeat_interval
+
+            if new_min <= 0:
+                raise ValueError("election_timeout_min must be greater than 0")
+            if new_max < new_min:
+                raise ValueError(
+                    f"election_timeout_max ({new_max}s) cannot be less than election_timeout_min ({new_min}s)"
+                )
+            if new_hb <= 0:
+                raise ValueError("heartbeat_interval must be greater than 0")
+            if new_hb >= new_min:
+                raise ValueError(
+                    f"heartbeat_interval ({new_hb}s) must be smaller than election_timeout_min ({new_min}s) "
+                    f"to prevent false election timeouts"
+                )
+
+            self.election_timeout_range = (new_min, new_max)
+            self.heartbeat_interval = new_hb
+            self._reset_election_timeout()
+
+            if health_check_interval is not None:
+                if health_check_interval <= 0:
+                    raise ValueError("health_check_interval must be greater than 0")
+                health_service.HEALTH_CHECK_INTERVAL = float(health_check_interval)
+
+            return {
+                "election_timeout_min": new_min,
+                "election_timeout_max": new_max,
+                "heartbeat_interval": new_hb,
+                "health_check_interval": float(getattr(health_service, "HEALTH_CHECK_INTERVAL", 5.0)),
+            }
