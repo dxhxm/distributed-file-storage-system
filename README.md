@@ -104,7 +104,9 @@ DFSS operates on a **Shared Collaborative Cluster Storage Model**:
 | `/cluster/status` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Cluster topology & node states | `401 Unauthorized` |
 | `/nodes` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Node inventory | `401 Unauthorized` |
 | `/nodes/update` | `POST` | `ADMIN` | Mutate cluster node configuration | `401` / `403 Forbidden` |
-| `/nodes/remove` | `POST` | `ADMIN` | Remove node from cluster | `401` / `403 Forbidden` |
+| `/nodes/cordon`, `/nodes/{id}/cordon` | `POST` | `ADMIN` | Cordon node (maintenance mode) | `401` / `403 Forbidden` |
+| `/nodes/uncordon`, `/nodes/{id}/uncordon` | `POST` | `ADMIN` | Uncordon node (restore active) | `401` / `403 Forbidden` |
+| `/nodes/remove`, `/nodes/{id}` | `POST` / `DELETE` | `ADMIN` | Remove node from cluster | `401` / `403 Forbidden` |
 | `/nodes/add` | `POST` | `ADMIN` | Add node to cluster | `401` / `403 Forbidden` |
 | `/raft/*`, `/sync-time` | `GET`/`POST` | `SYSTEM` | Inter-node consensus & synchronization | `401` / `403 Forbidden` |
 
