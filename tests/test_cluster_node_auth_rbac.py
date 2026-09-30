@@ -145,7 +145,7 @@ class TestClusterNodeAuthRBAC(unittest.TestCase):
     # 3. Mutating Endpoints Restricted Strictly to ADMIN (HTTP 403 for USER/SYSTEM)
     # =========================================================================
     def test_admin_can_reach_mutating_node_routes(self):
-        """DoD: ADMIN can execute mutating actions (POST /nodes/update, POST /fail-leader)."""
+        """DoD: ADMIN can execute mutating actions (POST /nodes/update, POST /fail-leader, /nodes/cordon, /nodes/remove)."""
         # 1. Update node status
         res_update = self.client.post(
             "/nodes/update?node_name=nodeA&status=ALIVE",
@@ -154,38 +154,54 @@ class TestClusterNodeAuthRBAC(unittest.TestCase):
         self.assertEqual(res_update.status_code, 200)
         self.assertIn("message", res_update.json())
 
-        # 2. Simulate fail leader
+        # 2. Cordon and uncordon node
+        res_cordon = self.client.post(
+            "/nodes/cordon?node_name=nodeA",
+            headers=self.admin_headers
+        )
+        self.assertEqual(res_cordon.status_code, 200)
+        self.assertEqual(res_cordon.json()["status"], "CORDONED")
+
+        res_uncordon = self.client.post(
+            "/nodes/uncordon?node_name=nodeA",
+            headers=self.admin_headers
+        )
+        self.assertEqual(res_uncordon.status_code, 200)
+        self.assertEqual(res_uncordon.json()["status"], "ALIVE")
+
+        # 3. Simulate fail leader
         res_fail = self.client.post("/fail-leader", headers=self.admin_headers)
         self.assertEqual(res_fail.status_code, 200)
         self.assertIn("message", res_fail.json())
 
     def test_user_role_forbidden_on_mutating_routes(self):
         """DoD: USER role receives HTTP 403 Forbidden on mutating routes."""
-        res_update = self.client.post(
-            "/nodes/update?node_name=nodeA&status=ALIVE",
-            headers=self.user_headers
-        )
-        self.assertEqual(res_update.status_code, 403)
-        self.assertEqual(res_update.json()["detail"], "Admin privileges required")
-        self.assertEqual(res_update.headers.get("X-Error-Code"), "FORBIDDEN")
-
-        res_fail = self.client.post("/fail-leader", headers=self.user_headers)
-        self.assertEqual(res_fail.status_code, 403)
-        self.assertEqual(res_fail.json()["detail"], "Admin privileges required")
-        self.assertEqual(res_fail.headers.get("X-Error-Code"), "FORBIDDEN")
+        mutating_routes = [
+            ("POST", "/nodes/update?node_name=nodeA&status=ALIVE"),
+            ("POST", "/nodes/cordon?node_name=nodeA"),
+            ("POST", "/nodes/uncordon?node_name=nodeA"),
+            ("POST", "/nodes/remove?node_name=nodeA"),
+            ("POST", "/fail-leader"),
+        ]
+        for method, path in mutating_routes:
+            res = self.client.post(path, headers=self.user_headers)
+            self.assertEqual(res.status_code, 403, f"Failed for USER on {path}")
+            self.assertEqual(res.json()["detail"], "Admin privileges required")
+            self.assertEqual(res.headers.get("X-Error-Code"), "FORBIDDEN")
 
     def test_system_role_forbidden_on_mutating_routes(self):
         """DoD: SYSTEM role receives HTTP 403 Forbidden on mutating admin routes."""
-        res_update = self.client.post(
-            "/nodes/update?node_name=nodeA&status=ALIVE",
-            headers=self.system_headers
-        )
-        self.assertEqual(res_update.status_code, 403)
-        self.assertEqual(res_update.json()["detail"], "Admin privileges required")
-
-        res_fail = self.client.post("/fail-leader", headers=self.system_headers)
-        self.assertEqual(res_fail.status_code, 403)
-        self.assertEqual(res_fail.json()["detail"], "Admin privileges required")
+        mutating_routes = [
+            ("POST", "/nodes/update?node_name=nodeA&status=ALIVE"),
+            ("POST", "/nodes/cordon?node_name=nodeA"),
+            ("POST", "/nodes/uncordon?node_name=nodeA"),
+            ("POST", "/nodes/remove?node_name=nodeA"),
+            ("POST", "/fail-leader"),
+        ]
+        for method, path in mutating_routes:
+            res = self.client.post(path, headers=self.system_headers)
+            self.assertEqual(res.status_code, 403, f"Failed for SYSTEM on {path}")
+            self.assertEqual(res.json()["detail"], "Admin privileges required")
 
 
 if __name__ == "__main__":

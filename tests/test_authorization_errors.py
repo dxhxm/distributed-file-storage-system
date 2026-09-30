@@ -104,6 +104,10 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             ("POST", "/replicate"),
             ("POST", "/sync-time?target_time=100.0"),
             ("POST", "/fail-leader"),
+            ("POST", "/nodes/cordon?node_name=nodeA"),
+            ("POST", "/nodes/remove?node_name=nodeA"),
+            ("GET", "/cluster/config"),
+            ("POST", "/cluster/config"),
         ]
 
         for method, path in protected_routes:
@@ -115,6 +119,8 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
                     res = self.client.post(path, files=files)
                 elif "raft" in path:
                     res = self.client.post(path, json={"term": 1})
+                elif "cluster/config" in path:
+                    res = self.client.post(path, json={"heartbeat_interval": 0.8})
                 else:
                     res = self.client.post(path)
             elif method == "DELETE":
@@ -140,7 +146,11 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
         admin_routes = [
             ("POST", "/auth/users", {"username": "new_user_err_test", "password": "Password123!"}),
             ("POST", "/nodes/update?node_name=nodeA&status=ALIVE", None),
+            ("POST", "/nodes/cordon?node_name=nodeA", None),
+            ("POST", "/nodes/remove?node_name=nodeA", None),
             ("POST", "/fail-leader", None),
+            ("GET", "/cluster/config", None),
+            ("POST", "/cluster/config", {"heartbeat_interval": 0.8}),
         ]
 
         for method, path, payload in admin_routes:

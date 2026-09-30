@@ -80,3 +80,71 @@ def fail_leader(
     """Simulate leader failure by stopping its background loop - Restricted to ADMIN."""
     consensus_service.running = False
     return {"message": "Node background thread stopped. It will no longer respond to Raft elections or heartbeats."}
+
+
+from typing import Optional
+from fastapi import Body, HTTPException, Query
+from app.models.cluster_config_model import UpdateClusterConfigRequest, ClusterConfigResponse
+
+
+@router.get("/cluster/config", response_model=ClusterConfigResponse)
+def get_cluster_config_endpoint(
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Get active cluster configuration tunables (election timeouts, heartbeat interval).
+    Restricted to ADMIN role.
+    """
+    config = consensus_service.get_cluster_config()
+    return ClusterConfigResponse(**config)
+
+
+@router.post("/cluster/config", response_model=ClusterConfigResponse)
+@router.put("/cluster/config", response_model=ClusterConfigResponse)
+def update_cluster_config_endpoint(
+    payload: Optional[UpdateClusterConfigRequest] = Body(None),
+    election_timeout_min: Optional[float] = Query(None),
+    election_timeout_max: Optional[float] = Query(None),
+    heartbeat_interval: Optional[float] = Query(None),
+    health_check_interval: Optional[float] = Query(None),
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Update active cluster configuration tunables with validation.
+    Restricted to ADMIN role.
+    """
+    req_min = payload.election_timeout_min if payload and payload.election_timeout_min is not None else election_timeout_min
+    req_max = payload.election_timeout_max if payload and payload.election_timeout_max is not None else election_timeout_max
+    req_hb = payload.heartbeat_interval if payload and payload.heartbeat_interval is not None else heartbeat_interval
+    req_hc = payload.health_check_interval if payload and payload.health_check_interval is not None else health_check_interval
+
+    # Validate non-negative numbers if passed via query params
+    for name, val in [
+        ("election_timeout_min", req_min),
+        ("election_timeout_max", req_max),
+        ("heartbeat_interval", req_hb),
+        ("health_check_interval", req_hc),
+    ]:
+        if val is not None and val <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid configuration value for {name}: {val}. Must be greater than 0."
+            )
+
+    try:
+        updated = consensus_service.update_cluster_config(
+            election_timeout_min=req_min,
+            election_timeout_max=req_max,
+            heartbeat_interval=req_hb,
+            health_check_interval=req_hc,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid cluster configuration: {str(exc)}"
+        ) from exc
+
+    return ClusterConfigResponse(
+        **updated,
+        message="Cluster configuration updated successfully"
+    )

@@ -28,6 +28,8 @@ last_heartbeats: Dict[str, float] = {
     "nodeC": time.time()
 }
 
+HEALTH_CHECK_INTERVAL: float = 5.0
+
 
 def _get_consensus_service() -> Optional[Any]:
     try:
@@ -37,17 +39,94 @@ def _get_consensus_service() -> Optional[Any]:
         return None
 
 
+def _resolve_node_key(node_id: str) -> Optional[str]:
+    """
+    Resolves a node key from either an exact key, display name, or normalized identifier.
+    """
+    if not node_id:
+        return None
+    raw = str(node_id).strip()
+    if raw in nodes_status:
+        return raw
+    
+    # Check display names
+    for key, dname in NODE_DISPLAY_NAMES.items():
+        if dname.lower() == raw.lower():
+            return key
+            
+    # Check normalized string
+    cleaned = raw.lower().replace(" ", "").replace("-", "").replace("_", "")
+    for key in list(nodes_status.keys()):
+        if key.lower().replace(" ", "").replace("-", "").replace("_", "") == cleaned:
+            return key
+    for key, dname in NODE_DISPLAY_NAMES.items():
+        if dname.lower().replace(" ", "").replace("-", "").replace("_", "") == cleaned:
+            return key
+            
+    return None
+
+
 def get_all_nodes() -> Dict[str, str]:
     return nodes_status
 
 
 def update_node_status(node_name: str, status: str) -> bool:
-    if node_name in nodes_status:
-        nodes_status[node_name] = status
-        if status == "ALIVE":
-            last_heartbeats[node_name] = time.time()
+    key = _resolve_node_key(node_name)
+    if key and key in nodes_status:
+        nodes_status[key] = status
+        if status in ("ALIVE", "ONLINE"):
+            last_heartbeats[key] = time.time()
         return True
     return False
+
+
+def remove_node(node_name: str) -> bool:
+    """
+    Removes a node from cluster tracking.
+    """
+    key = _resolve_node_key(node_name)
+    if key and key in nodes_status:
+        nodes_status.pop(key, None)
+        NODE_URLS.pop(key, None)
+        NODE_DISPLAY_NAMES.pop(key, None)
+        last_heartbeats.pop(key, None)
+        return True
+    return False
+
+
+def cordon_node(node_name: str) -> bool:
+    """
+    Marks a node as CORDONED (temporarily unschedulable / maintenance mode).
+    """
+    key = _resolve_node_key(node_name)
+    if key and key in nodes_status:
+        nodes_status[key] = "CORDONED"
+        return True
+    return False
+
+
+def uncordon_node(node_name: str) -> bool:
+    """
+    Uncordons a node and returns its status to ALIVE.
+    """
+    key = _resolve_node_key(node_name)
+    if key and key in nodes_status:
+        nodes_status[key] = "ALIVE"
+        last_heartbeats[key] = time.time()
+        return True
+    return False
+
+
+def add_node(node_name: str, url: str, display_name: Optional[str] = None) -> bool:
+    """
+    Registers a new node in cluster tracking.
+    """
+    key = node_name.strip()
+    nodes_status[key] = "ALIVE"
+    NODE_URLS[key] = url
+    NODE_DISPLAY_NAMES[key] = display_name or node_name
+    last_heartbeats[key] = time.time()
+    return True
 
 
 def check_node_health(url: str, retries: int = 3) -> str:
@@ -85,7 +164,7 @@ def check_all_nodes() -> Dict[str, str]:
 def heartbeat_loop() -> None:
     while True:
         check_all_nodes()
-        time.sleep(5)  # every 5 seconds
+        time.sleep(HEALTH_CHECK_INTERVAL)
 
 
 def start_heartbeat() -> None:
@@ -133,8 +212,13 @@ def get_nodes_info() -> Dict[str, Any]:
     node_list = []
     for key, url in NODE_URLS.items():
         display_name = NODE_DISPLAY_NAMES.get(key, key)
-        is_alive = nodes_status.get(key) == "ALIVE"
-        status = "ONLINE" if is_alive else "OFFLINE"
+        stat_val = nodes_status.get(key)
+        if stat_val == "CORDONED":
+            status = "CORDONED"
+        elif stat_val in ("ALIVE", "ONLINE"):
+            status = "ONLINE"
+        else:
+            status = "OFFLINE"
 
         # Determine node state
         if display_name == current_node:
