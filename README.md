@@ -101,6 +101,8 @@ DFSS operates on a **Shared Collaborative Cluster Storage Model**:
 | `/files/{file_id}` | `DELETE` | `USER`, `ADMIN`, `SYSTEM` | Delete file & purge replicas | `401 Unauthorized` |
 | `/replicate` | `POST` | `SYSTEM` | Inter-node file replication | `401` / `403 Forbidden` |
 | `/health` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Node health status | `401 Unauthorized` |
+| `/health/detailed` | `GET` | `ADMIN` | Detailed sub-system health & telemetry diagnostics | `401` / `403 Forbidden` |
+| `/logs` | `GET` | `ADMIN` | Retrieve system logs (access is audited) | `401` / `403 Forbidden` |
 | `/cluster/status` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Cluster topology & node states | `401 Unauthorized` |
 | `/cluster/config` | `GET` / `POST` / `PUT` | `ADMIN` | View and mutate cluster configuration tunables | `401` / `403 Forbidden` |
 | `/nodes` | `GET` | `USER`, `ADMIN`, `SYSTEM` | Node inventory | `401 Unauthorized` |

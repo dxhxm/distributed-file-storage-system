@@ -21,6 +21,11 @@ from app.models.cluster_config_model import (
     UpdateClusterConfigRequest,
     ClusterConfigResponse,
 )
+from app.models.log_model import (
+    LogEntry,
+    LogsResponse,
+    DetailedHealthResponse,
+)
 
 __all__ = [
     "Role",
@@ -35,4 +40,7 @@ __all__ = [
     "ClusterConfig",
     "UpdateClusterConfigRequest",
     "ClusterConfigResponse",
+    "LogEntry",
+    "LogsResponse",
+    "DetailedHealthResponse",
 ]

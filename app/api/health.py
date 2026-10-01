@@ -4,7 +4,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from app.api.dependencies import AuthenticatedUser, require_admin, require_role
 from app.models.user_model import Role
 from app.models.node_model import NodeActionRequest, AddNodeRequest, UpdateNodeRequest
-from app.services import health_service
+from app.models.log_model import DetailedHealthResponse
+from app.services import health_service, log_service
 
 router = APIRouter()
 
@@ -25,6 +26,25 @@ async def health_check(
         "node_id": node_id,
         "timestamp": time.time()
     }
+
+
+@router.get("/health/detailed", response_model=DetailedHealthResponse, tags=["Admin Health & Telemetry"])
+@router.get("/admin/health", response_model=DetailedHealthResponse, include_in_schema=False)
+async def get_detailed_health(
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Detailed operational health and telemetry diagnostics across all sub-components.
+    Restricted to ADMIN role.
+    """
+    log_service.record_audit(
+        actor_id=current_user.user_id,
+        actor_username=current_user.username or current_user.user_id,
+        action="VIEW_DETAILED_HEALTH",
+        target="/health/detailed"
+    )
+    data = log_service.get_detailed_health()
+    return DetailedHealthResponse(**data)
 
 
 @router.get("/cluster/status")
