@@ -110,19 +110,23 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             ("POST", "/cluster/config"),
             ("GET", "/logs"),
             ("GET", "/health/detailed"),
+            ("GET", "/replication/config"),
+            ("POST", "/replication/config"),
         ]
 
         for method, path in protected_routes:
             if method == "GET":
                 res = self.client.get(path)
             elif method == "POST":
-                if "upload" in path or "replicate" in path:
+                if "upload" in path or "replicate" in path and path == "/replicate":
                     files = {"file": ("test.txt", io.BytesIO(b"data"), "text/plain")}
                     res = self.client.post(path, files=files)
                 elif "raft" in path:
                     res = self.client.post(path, json={"term": 1})
                 elif "cluster/config" in path:
                     res = self.client.post(path, json={"heartbeat_interval": 0.8})
+                elif "replication/config" in path:
+                    res = self.client.post(path, json={"replication_factor": 2})
                 else:
                     res = self.client.post(path)
             elif method == "DELETE":
@@ -155,6 +159,8 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             ("POST", "/cluster/config", {"heartbeat_interval": 0.8}),
             ("GET", "/logs", None),
             ("GET", "/health/detailed", None),
+            ("GET", "/replication/config", None),
+            ("POST", "/replication/config", {"replication_factor": 2}),
         ]
 
         for method, path, payload in admin_routes:

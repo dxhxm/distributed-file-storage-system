@@ -2,13 +2,16 @@ import os
 import shutil
 import hashlib
 import requests
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Response
+from typing import Optional
+from fastapi import APIRouter, Body, Depends, UploadFile, File, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
-from app.api.dependencies import AuthenticatedUser, require_role, require_system
+from app.api.dependencies import AuthenticatedUser, require_admin, require_role, require_system
 from app.models.user_model import Role
+from app.models.replication_model import UpdateReplicationConfigRequest, ReplicationConfigResponse
 from app.services.jwt_service import get_system_auth_headers
-from app.services.replication_service import replicate_file, is_node_alive
+from app.services.replication_service import replicate_file, is_node_alive, get_replication_config, update_replication_config
+from app.services import log_service
 from app.models.config import NODES, CURRENT_NODE
 
 router = APIRouter()
@@ -293,5 +296,70 @@ async def receive_replica(
         shutil.copyfileobj(file.file, f)
 
     return {"message": "File replicated successfully", "filename": file.filename}
+
+
+@router.get("/replication/config", response_model=ReplicationConfigResponse, tags=["Replication Configuration"])
+@router.get("/admin/replication/config", response_model=ReplicationConfigResponse, include_in_schema=False)
+def get_replication_config_endpoint(
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Get active cluster replication settings and cluster size constraints.
+    Restricted to ADMIN role.
+    """
+    config = get_replication_config()
+    return ReplicationConfigResponse(**config)
+
+
+@router.post("/replication/config", response_model=ReplicationConfigResponse, tags=["Replication Configuration"])
+@router.put("/replication/config", response_model=ReplicationConfigResponse, tags=["Replication Configuration"])
+def update_replication_config_endpoint(
+    payload: Optional[UpdateReplicationConfigRequest] = Body(None),
+    replication_factor: Optional[int] = Query(None),
+    auto_rebalance: Optional[bool] = Query(None),
+    replication_timeout: Optional[float] = Query(None),
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Update active cluster replication settings.
+    Restricted to ADMIN role.
+
+    DoD Invariant:
+    Changing replication factor is validated against cluster size before being accepted.
+    """
+    req_factor = payload.replication_factor if payload and payload.replication_factor is not None else replication_factor
+    req_rebal = payload.auto_rebalance if payload and payload.auto_rebalance is not None else auto_rebalance
+    req_timeout = payload.replication_timeout if payload and payload.replication_timeout is not None else replication_timeout
+
+    try:
+        updated = update_replication_config(
+            replication_factor=req_factor,
+            auto_rebalance=req_rebal,
+            replication_timeout=req_timeout,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid replication configuration: {str(exc)}"
+        ) from exc
+
+    # Record audit log
+    log_service.record_audit(
+        actor_id=current_user.user_id,
+        actor_username=current_user.username or current_user.user_id,
+        action="UPDATE_REPLICATION_CONFIG",
+        target="/replication/config",
+        details={
+            "replication_factor": updated["replication_factor"],
+            "auto_rebalance": updated["auto_rebalance"],
+            "replication_timeout": updated["replication_timeout"],
+            "cluster_size": updated["cluster_size"],
+        }
+    )
+
+    return ReplicationConfigResponse(
+        **updated,
+        message="Replication configuration updated successfully"
+    )
 
 

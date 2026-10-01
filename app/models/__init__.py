@@ -26,6 +26,11 @@ from app.models.log_model import (
     LogsResponse,
     DetailedHealthResponse,
 )
+from app.models.replication_model import (
+    ReplicationConfig,
+    UpdateReplicationConfigRequest,
+    ReplicationConfigResponse,
+)
 
 __all__ = [
     "Role",
@@ -43,4 +48,7 @@ __all__ = [
     "LogEntry",
     "LogsResponse",
     "DetailedHealthResponse",
+    "ReplicationConfig",
+    "UpdateReplicationConfigRequest",
+    "ReplicationConfigResponse",
 ]
