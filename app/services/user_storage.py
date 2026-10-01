@@ -200,3 +200,88 @@ def delete_user(username: str, db_path: Optional[str] = None) -> bool:
             return cursor.rowcount > 0
     finally:
         conn.close()
+
+
+def get_user_by_id_or_username(identifier: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Retrieves a user record by primary key id or by unique username.
+    """
+    user = get_user_by_id(identifier, db_path=db_path)
+    if user:
+        return user
+    return get_user_by_username(identifier, db_path=db_path)
+
+
+def count_active_admins(db_path: Optional[str] = None) -> int:
+    """
+    Counts the number of active users with the ADMIN role in the database.
+    Used to prevent admin lockout when demoting or deactivating admin accounts.
+    """
+    init_db(db_path)
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN' AND is_active = 1")
+        row = cursor.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def update_user_role(
+    identifier: str,
+    new_role: Any,
+    db_path: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Updates the role of a user identified by user ID or username.
+    Returns the updated user dictionary, or None if the user does not exist.
+    """
+    init_db(db_path)
+    user = get_user_by_id_or_username(identifier, db_path=db_path)
+    if not user:
+        return None
+
+    role_str = new_role.value if hasattr(new_role, "value") else str(new_role)
+
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE users SET role = ? WHERE id = ?",
+                (role_str, user["id"])
+            )
+    finally:
+        conn.close()
+
+    return get_user_by_id(user["id"], db_path=db_path)
+
+
+def update_user_status(
+    identifier: str,
+    is_active: bool,
+    db_path: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Updates the active status (is_active) of a user identified by user ID or username.
+    Returns the updated user dictionary, or None if the user does not exist.
+    """
+    init_db(db_path)
+    user = get_user_by_id_or_username(identifier, db_path=db_path)
+    if not user:
+        return None
+
+    is_active_int = 1 if is_active else 0
+
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE users SET is_active = ? WHERE id = ?",
+                (is_active_int, user["id"])
+            )
+    finally:
+        conn.close()
+
+    return get_user_by_id(user["id"], db_path=db_path)
+

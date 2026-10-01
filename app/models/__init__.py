@@ -10,6 +10,8 @@ from app.models.user_model import (
     LoginResponse,
     CreateUserRequest,
     UserResponse,
+    UpdateUserRoleRequest,
+    UpdateUserStatusRequest,
 )
 from app.models.node_model import (
     NodeActionRequest,
@@ -39,6 +41,8 @@ __all__ = [
     "LoginResponse",
     "CreateUserRequest",
     "UserResponse",
+    "UpdateUserRoleRequest",
+    "UpdateUserStatusRequest",
     "NodeActionRequest",
     "AddNodeRequest",
     "UpdateNodeRequest",

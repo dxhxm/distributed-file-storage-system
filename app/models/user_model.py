@@ -98,3 +98,21 @@ class UserResponse(BaseModel):
     role: str = Field(..., description="Assigned role")
     created_at: str = Field(..., description="ISO 8601 creation timestamp")
     is_active: bool = Field(..., description="Account active status")
+
+
+class UpdateUserRoleRequest(BaseModel):
+    """
+    Payload for updating a user's role.
+    """
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    role: Role = Field(..., description="Target role to assign (USER, ADMIN, SYSTEM)")
+
+
+class UpdateUserStatusRequest(BaseModel):
+    """
+    Payload for activating or deactivating a user account.
+    """
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    is_active: bool = Field(..., description="Account active status (True = active, False = deactivated)")
