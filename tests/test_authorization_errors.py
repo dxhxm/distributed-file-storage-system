@@ -108,19 +108,30 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             ("POST", "/nodes/remove?node_name=nodeA"),
             ("GET", "/cluster/config"),
             ("POST", "/cluster/config"),
+            ("GET", "/logs"),
+            ("GET", "/health/detailed"),
+            ("GET", "/replication/config"),
+            ("POST", "/replication/config"),
+            ("GET", "/auth/users"),
+            ("PUT", "/auth/users/user-12345/role"),
+            ("POST", "/auth/users/user-12345/deactivate"),
         ]
 
         for method, path in protected_routes:
             if method == "GET":
                 res = self.client.get(path)
+            elif method == "PUT":
+                res = self.client.put(path, json={"role": "ADMIN"})
             elif method == "POST":
-                if "upload" in path or "replicate" in path:
+                if "upload" in path or "replicate" in path and path == "/replicate":
                     files = {"file": ("test.txt", io.BytesIO(b"data"), "text/plain")}
                     res = self.client.post(path, files=files)
                 elif "raft" in path:
                     res = self.client.post(path, json={"term": 1})
                 elif "cluster/config" in path:
                     res = self.client.post(path, json={"heartbeat_interval": 0.8})
+                elif "replication/config" in path:
+                    res = self.client.post(path, json={"replication_factor": 2})
                 else:
                     res = self.client.post(path)
             elif method == "DELETE":
@@ -145,17 +156,26 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
         delete_user("new_user_err_test")
         admin_routes = [
             ("POST", "/auth/users", {"username": "new_user_err_test", "password": "Password123!"}),
+            ("GET", "/auth/users", None),
             ("POST", "/nodes/update?node_name=nodeA&status=ALIVE", None),
             ("POST", "/nodes/cordon?node_name=nodeA", None),
             ("POST", "/nodes/remove?node_name=nodeA", None),
             ("POST", "/fail-leader", None),
             ("GET", "/cluster/config", None),
             ("POST", "/cluster/config", {"heartbeat_interval": 0.8}),
+            ("GET", "/logs", None),
+            ("GET", "/health/detailed", None),
+            ("GET", "/replication/config", None),
+            ("POST", "/replication/config", {"replication_factor": 2}),
         ]
 
         for method, path, payload in admin_routes:
             # 1. Unauthenticated -> strictly 401
-            res_unauth = self.client.post(path, json=payload) if payload else self.client.post(path)
+            if method == "GET":
+                res_unauth = self.client.get(path)
+            else:
+                res_unauth = self.client.post(path, json=payload) if payload else self.client.post(path)
+
             self.assertEqual(
                 res_unauth.status_code, 401,
                 f"Expected 401 on unauthenticated call to {path}, got {res_unauth.status_code}"
@@ -163,10 +183,13 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             self.assertEqual(res_unauth.headers.get("X-Error-Code"), "NOT_AUTHENTICATED")
 
             # 2. Authenticated as USER (insufficient role) -> strictly 403 (NOT 401)
-            res_user = (
-                self.client.post(path, json=payload, headers=self.user_headers)
-                if payload else self.client.post(path, headers=self.user_headers)
-            )
+            if method == "GET":
+                res_user = self.client.get(path, headers=self.user_headers)
+            else:
+                res_user = (
+                    self.client.post(path, json=payload, headers=self.user_headers)
+                    if payload else self.client.post(path, headers=self.user_headers)
+                )
             self.assertEqual(
                 res_user.status_code, 403,
                 f"Expected 403 on USER role call to admin route {path}, got {res_user.status_code}"
@@ -174,10 +197,13 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             self.assertIn("detail", res_user.json())
 
             # 3. Authenticated as ADMIN -> 200/201 (success)
-            res_admin = (
-                self.client.post(path, json=payload, headers=self.admin_headers)
-                if payload else self.client.post(path, headers=self.admin_headers)
-            )
+            if method == "GET":
+                res_admin = self.client.get(path, headers=self.admin_headers)
+            else:
+                res_admin = (
+                    self.client.post(path, json=payload, headers=self.admin_headers)
+                    if payload else self.client.post(path, headers=self.admin_headers)
+                )
             self.assertIn(res_admin.status_code, [200, 201])
 
         delete_user("new_user_err_test")

@@ -15,6 +15,7 @@ from app.api import health
 from app.api import time_sync
 from app.api import replicate_routes
 from app.api import auth
+from app.api import logs
 from app.services.time_sync import start_periodic_sync, start_clock_slew
 from app.services.health_service import start_heartbeat
 from app.services.user_storage import init_db
@@ -73,6 +74,7 @@ app.include_router(consensus_router, tags=["Consensus"])
 app.include_router(time_sync.router, tags=["Time Synchronization"])
 app.include_router(replicate_routes.router, tags=["Replication"])
 app.include_router(auth.router, tags=["Authentication"])
+app.include_router(logs.router, tags=["Admin Logging & Audit"])
 
 
 @app.get("/")

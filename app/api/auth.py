@@ -8,7 +8,7 @@ Implements Section 26 user authentication, RBAC authorization, and user manageme
 - GET /auth/me (and /me alias) returning authenticated session profile
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import (
@@ -24,9 +24,13 @@ from app.models.user_model import (
     LoginRequest,
     LoginResponse,
     RefreshTokenRequest,
+    Role,
+    UpdateUserRoleRequest,
+    UpdateUserStatusRequest,
     User,
     UserResponse,
 )
+from app.services import log_service
 from app.services.auth_service import hash_password, verify_password
 from app.services.jwt_service import (
     TokenExpiredError,
@@ -36,9 +40,14 @@ from app.services.jwt_service import (
     decode_refresh_token,
 )
 from app.services.user_storage import (
+    count_active_admins,
     create_user,
     get_user_by_id,
+    get_user_by_id_or_username,
     get_user_by_username,
+    list_users,
+    update_user_role,
+    update_user_status,
 )
 
 router = APIRouter(tags=["Authentication"])
@@ -235,4 +244,171 @@ async def get_my_profile(
     Restricted to human user accounts (USER or ADMIN); SYSTEM tokens cannot access user profiles.
     """
     return current_user
+
+
+@router.get("/auth/users", response_model=List[UserResponse], status_code=status.HTTP_200_OK)
+@router.get("/users", response_model=List[UserResponse], status_code=status.HTTP_200_OK, include_in_schema=False)
+async def get_all_users(
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    List all user accounts in the cluster.
+    Strictly restricted to authenticated cluster administrators (ADMIN role).
+    """
+    records = list_users()
+    return [
+        UserResponse(
+            id=r["id"],
+            username=r["username"],
+            role=r["role"],
+            created_at=r["created_at"],
+            is_active=r["is_active"],
+        )
+        for r in records
+    ]
+
+
+@router.put("/auth/users/{identifier}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@router.post("/auth/users/{identifier}/role", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+@router.put("/users/{identifier}/role", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+@router.post("/users/{identifier}/role", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+async def change_user_role(
+    identifier: str,
+    payload: UpdateUserRoleRequest,
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Change the assigned role of a user.
+    Strictly restricted to authenticated cluster administrators (ADMIN role).
+
+    DoD Invariant:
+    An admin cannot demote the last remaining ADMIN account, avoiding a lockout.
+    """
+    user = get_user_by_id_or_username(identifier)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{identifier}' not found",
+        )
+
+    target_role_str = payload.role.value if hasattr(payload.role, "value") else str(payload.role)
+
+    # Lockout check: if demoting an active ADMIN to non-ADMIN, ensure at least 1 other active ADMIN remains
+    if user["role"] == Role.ADMIN.value and user["is_active"] and target_role_str != Role.ADMIN.value:
+        active_admins = count_active_admins()
+        if active_admins <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot demote the last remaining active ADMIN account to avoid system lockout",
+            )
+
+    updated = update_user_role(user["id"], payload.role)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{identifier}' not found",
+        )
+
+    # Audit logging
+    log_service.record_audit(
+        actor_id=current_user.user_id,
+        actor_username=current_user.username or current_user.user_id,
+        action="UPDATE_USER_ROLE",
+        target=f"/auth/users/{user['id']}/role",
+        details={
+            "target_user_id": user["id"],
+            "target_username": user["username"],
+            "previous_role": user["role"],
+            "new_role": target_role_str,
+        },
+    )
+
+    return UserResponse(
+        id=updated["id"],
+        username=updated["username"],
+        role=updated["role"],
+        created_at=updated["created_at"],
+        is_active=updated["is_active"],
+    )
+
+
+@router.post("/auth/users/{identifier}/deactivate", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@router.post("/users/{identifier}/deactivate", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+async def deactivate_user_account(
+    identifier: str,
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Deactivate a user account on the cluster.
+    Strictly restricted to authenticated cluster administrators (ADMIN role).
+
+    DoD Invariant:
+    An admin cannot deactivate the last remaining active ADMIN account, avoiding a lockout.
+    """
+    return await _set_user_active_status(identifier, is_active=False, current_user=current_user)
+
+
+@router.put("/auth/users/{identifier}/status", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@router.put("/users/{identifier}/status", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
+async def update_user_account_status(
+    identifier: str,
+    payload: UpdateUserStatusRequest,
+    current_user: AuthenticatedUser = Depends(require_admin),
+):
+    """
+    Update active status (activate/deactivate) of a user account.
+    Strictly restricted to authenticated cluster administrators (ADMIN role).
+    """
+    return await _set_user_active_status(identifier, is_active=payload.is_active, current_user=current_user)
+
+
+async def _set_user_active_status(
+    identifier: str,
+    is_active: bool,
+    current_user: AuthenticatedUser,
+) -> UserResponse:
+    user = get_user_by_id_or_username(identifier)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{identifier}' not found",
+        )
+
+    # Lockout check: if deactivating an active ADMIN, ensure at least 1 other active ADMIN remains
+    if user["role"] == Role.ADMIN.value and user["is_active"] and not is_active:
+        active_admins = count_active_admins()
+        if active_admins <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot deactivate the last remaining active ADMIN account to avoid system lockout",
+            )
+
+    updated = update_user_status(user["id"], is_active)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{identifier}' not found",
+        )
+
+    # Audit logging
+    log_service.record_audit(
+        actor_id=current_user.user_id,
+        actor_username=current_user.username or current_user.user_id,
+        action="DEACTIVATE_USER" if not is_active else "ACTIVATE_USER",
+        target=f"/auth/users/{user['id']}/status",
+        details={
+            "target_user_id": user["id"],
+            "target_username": user["username"],
+            "is_active": is_active,
+        },
+    )
+
+    return UserResponse(
+        id=updated["id"],
+        username=updated["username"],
+        role=updated["role"],
+        created_at=updated["created_at"],
+        is_active=updated["is_active"],
+    )
+
 

@@ -10,6 +10,8 @@ from app.models.user_model import (
     LoginResponse,
     CreateUserRequest,
     UserResponse,
+    UpdateUserRoleRequest,
+    UpdateUserStatusRequest,
 )
 from app.models.node_model import (
     NodeActionRequest,
@@ -21,6 +23,16 @@ from app.models.cluster_config_model import (
     UpdateClusterConfigRequest,
     ClusterConfigResponse,
 )
+from app.models.log_model import (
+    LogEntry,
+    LogsResponse,
+    DetailedHealthResponse,
+)
+from app.models.replication_model import (
+    ReplicationConfig,
+    UpdateReplicationConfigRequest,
+    ReplicationConfigResponse,
+)
 
 __all__ = [
     "Role",
@@ -29,10 +41,18 @@ __all__ = [
     "LoginResponse",
     "CreateUserRequest",
     "UserResponse",
+    "UpdateUserRoleRequest",
+    "UpdateUserStatusRequest",
     "NodeActionRequest",
     "AddNodeRequest",
     "UpdateNodeRequest",
     "ClusterConfig",
     "UpdateClusterConfigRequest",
     "ClusterConfigResponse",
+    "LogEntry",
+    "LogsResponse",
+    "DetailedHealthResponse",
+    "ReplicationConfig",
+    "UpdateReplicationConfigRequest",
+    "ReplicationConfigResponse",
 ]

@@ -19,7 +19,11 @@ from app.services import (
     create_user,
     delete_user,
     get_user_by_id,
+    get_user_by_id_or_username,
     get_user_by_username,
+    count_active_admins,
+    update_user_role,
+    update_user_status,
     hash_password,
     init_db,
     list_users,
@@ -122,6 +126,7 @@ class TestAuthStorageSchema(unittest.TestCase):
         # 2. Retrieve by username
         fetched_admin = get_user_by_username("admin_root", db_path=self.db_path)
         self.assertIsNotNone(fetched_admin)
+        assert fetched_admin is not None
         self.assertEqual(fetched_admin["id"], rec_admin["id"])
         self.assertEqual(fetched_admin["role"], "ADMIN")
         self.assertTrue(fetched_admin["is_active"])
@@ -129,6 +134,7 @@ class TestAuthStorageSchema(unittest.TestCase):
         # 3. Retrieve by ID
         fetched_sys = get_user_by_id(rec_sys["id"], db_path=self.db_path)
         self.assertIsNotNone(fetched_sys)
+        assert fetched_sys is not None
         self.assertEqual(fetched_sys["username"], "system_node_b")
         self.assertEqual(fetched_sys["role"], "SYSTEM")
 
@@ -173,6 +179,84 @@ class TestAuthStorageSchema(unittest.TestCase):
         self.assertIn("Section 19", content)
         self.assertIn("file_id", content)
         self.assertIn("replicas", content)
+
+    def test_user_role_and_status_updates(self):
+        """Verify role modification, active status toggle, and lookup by id or username."""
+        init_db(self.db_path)
+        user = User(
+            username="dave_dev",
+            hashed_password=hash_password("SecretPass123!"),
+            role=Role.USER,
+            is_active=True
+        )
+        created = create_user(user, db_path=self.db_path)
+        user_id = created["id"]
+
+        # 1. Lookup by ID and by username
+        by_id = get_user_by_id_or_username(user_id, db_path=self.db_path)
+        self.assertIsNotNone(by_id)
+        assert by_id is not None
+        self.assertEqual(by_id["username"], "dave_dev")
+
+        by_username = get_user_by_id_or_username("dave_dev", db_path=self.db_path)
+        self.assertIsNotNone(by_username)
+        assert by_username is not None
+        self.assertEqual(by_username["id"], user_id)
+
+        # 2. Update role from USER to ADMIN
+        updated_role = update_user_role(user_id, Role.ADMIN, db_path=self.db_path)
+        self.assertIsNotNone(updated_role)
+        assert updated_role is not None
+        self.assertEqual(updated_role["role"], "ADMIN")
+
+        # Verify persistence
+        refetched = get_user_by_username("dave_dev", db_path=self.db_path)
+        self.assertIsNotNone(refetched)
+        assert refetched is not None
+        self.assertEqual(refetched["role"], "ADMIN")
+
+        # 3. Update status to deactivated
+        updated_status = update_user_status("dave_dev", False, db_path=self.db_path)
+        self.assertIsNotNone(updated_status)
+        assert updated_status is not None
+        self.assertFalse(updated_status["is_active"])
+
+        # Verify persistence
+        refetched_status = get_user_by_id(user_id, db_path=self.db_path)
+        self.assertIsNotNone(refetched_status)
+        assert refetched_status is not None
+        self.assertFalse(refetched_status["is_active"])
+
+        # 4. Reactivate user
+        reactivated = update_user_status(user_id, True, db_path=self.db_path)
+        self.assertIsNotNone(reactivated)
+        assert reactivated is not None
+        self.assertTrue(reactivated["is_active"])
+
+        # 5. Non-existent user updates return None
+        self.assertIsNone(update_user_role("non_existent_uuid", Role.USER, db_path=self.db_path))
+        self.assertIsNone(update_user_status("non_existent_uuid", False, db_path=self.db_path))
+
+    def test_count_active_admins(self):
+        """Verify count_active_admins correctly counts only active admins."""
+        init_db(self.db_path)
+        self.assertEqual(count_active_admins(db_path=self.db_path), 0)
+
+        # Admin 1 (active)
+        create_user(User(username="admin1", hashed_password="h", role=Role.ADMIN, is_active=True), db_path=self.db_path)
+        self.assertEqual(count_active_admins(db_path=self.db_path), 1)
+
+        # Admin 2 (inactive)
+        create_user(User(username="admin2", hashed_password="h", role=Role.ADMIN, is_active=False), db_path=self.db_path)
+        self.assertEqual(count_active_admins(db_path=self.db_path), 1)
+
+        # Standard user (active)
+        create_user(User(username="user1", hashed_password="h", role=Role.USER, is_active=True), db_path=self.db_path)
+        self.assertEqual(count_active_admins(db_path=self.db_path), 1)
+
+        # Admin 3 (active)
+        create_user(User(username="admin3", hashed_password="h", role=Role.ADMIN, is_active=True), db_path=self.db_path)
+        self.assertEqual(count_active_admins(db_path=self.db_path), 2)
 
 
 if __name__ == "__main__":
