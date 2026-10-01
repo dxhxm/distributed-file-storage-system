@@ -112,11 +112,16 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
             ("GET", "/health/detailed"),
             ("GET", "/replication/config"),
             ("POST", "/replication/config"),
+            ("GET", "/auth/users"),
+            ("PUT", "/auth/users/user-12345/role"),
+            ("POST", "/auth/users/user-12345/deactivate"),
         ]
 
         for method, path in protected_routes:
             if method == "GET":
                 res = self.client.get(path)
+            elif method == "PUT":
+                res = self.client.put(path, json={"role": "ADMIN"})
             elif method == "POST":
                 if "upload" in path or "replicate" in path and path == "/replicate":
                     files = {"file": ("test.txt", io.BytesIO(b"data"), "text/plain")}
@@ -151,6 +156,7 @@ class TestAuthorizationErrorHandling(unittest.TestCase):
         delete_user("new_user_err_test")
         admin_routes = [
             ("POST", "/auth/users", {"username": "new_user_err_test", "password": "Password123!"}),
+            ("GET", "/auth/users", None),
             ("POST", "/nodes/update?node_name=nodeA&status=ALIVE", None),
             ("POST", "/nodes/cordon?node_name=nodeA", None),
             ("POST", "/nodes/remove?node_name=nodeA", None),
