@@ -141,6 +141,21 @@ class TestSecretsManagementAudit(unittest.TestCase):
             payload_sys_v2 = decode_system_token(system_token_v2)
             self.assertEqual(payload_sys_v2["sub"], "Node A")
 
+    def test_jwt_secret_rotation_readme_documentation_exists(self):
+        """DoD: Rotation steps documented in README per Section 34."""
+        readme_path = os.path.join(self.project_root, "README.md")
+        self.assertTrue(os.path.exists(readme_path), "README.md must exist at repository root")
+
+        with open(readme_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Check for rotation documentation keywords and steps
+        self.assertIn("JWT_SECRET", content)
+        self.assertIn("Rotation Procedure", content)
+        self.assertIn("Section 34", content)
+        self.assertIn("openssl rand -hex 32", content)
+        self.assertIn("validate_auth_config()", content)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
