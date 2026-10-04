@@ -102,6 +102,26 @@ All sensitive configuration parameters must be supplied via environment variable
 
 ---
 
+## Brute-Force Protection & Rate Limiting (Section 33)
+
+DFSS enforces thread-safe rate limiting on the `/auth/login` authentication route to safeguard cluster nodes against brute-force password guessing and denial-of-service attacks.
+
+### Mechanism & Policies
+- **Sliding Window Tracking**: Failed login attempts are recorded per client IP / source origin over a configurable sliding time window (`AUTH_RATE_LIMIT_WINDOW_SECONDS`, default: 60s).
+- **Temporary Lockout**: If consecutive failed attempts reach the configured threshold (`AUTH_RATE_LIMIT_MAX_ATTEMPTS`, default: 5 attempts), the source origin is temporarily locked out.
+- **HTTP 429 Too Many Requests**: Requests during lockout are rejected with `HTTP 429` and include a `Retry-After: <seconds>` header indicating the remaining cooldown duration.
+- **Automatic Cooldown & Recovery**: After the cooldown period (`AUTH_RATE_LIMIT_COOLDOWN_SECONDS`, default: 60s) elapses, legitimate authentication requests immediately succeed without manual intervention.
+- **Immediate Reset on Success**: A single successful login immediately resets the failure counter for that source.
+- **Source Isolation**: Rate limiting is tracked per origin IP/host, ensuring legitimate users on separate addresses are never locked out by attacks on other IPs.
+
+| Configuration Variable | Description | Default |
+| :--- | :--- | :--- |
+| `AUTH_RATE_LIMIT_MAX_ATTEMPTS` | Maximum failed attempts allowed before triggering lockout. | `5` |
+| `AUTH_RATE_LIMIT_COOLDOWN_SECONDS` | Lockout duration in seconds. | `60` |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | Sliding window duration in seconds. | `60` |
+
+---
+
 ## JWT_SECRET Rotation Procedure
 
 To maintain security compliance or respond to credential exposure incidents, follow this standardized procedure for rotating `JWT_SECRET`:

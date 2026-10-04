@@ -9,7 +9,7 @@ Implements Section 26 user authentication, RBAC authorization, and user manageme
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.dependencies import (
     AuthenticatedUser,
@@ -39,6 +39,7 @@ from app.services.jwt_service import (
     create_refresh_token,
     decode_refresh_token,
 )
+from app.services.rate_limiter import auth_rate_limiter
 from app.services.user_storage import (
     count_active_admins,
     create_user,
@@ -57,22 +58,48 @@ router = APIRouter(tags=["Authentication"])
 _DUMMY_HASH = "$2b$12$0Gq0v3mR9Jq6Y7zL5H2bte7wX1a3k4j5l6m7n8o9p0q1r2s3t4u5v"
 
 
+def _get_client_source_identifier(request: Request) -> str:
+    """Extracts client IP or origin host for brute-force rate limiting."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown_client"
+
+
 @router.post("/auth/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
-async def login(credentials: LoginRequest):
+async def login(credentials: LoginRequest, request: Request):
     """
     Authenticate user with username and password, returning a signed JWT access token and refresh token.
 
     Security guarantees:
+    - Section 33 Brute-force protection: Rate limits and temporarily locks sources after repeated failed attempts.
     - Zero user-enumeration: Returns identical 401 error for non-existent users and wrong passwords.
     - Constant-time computation regardless of user existence.
     - Rejects inactive or suspended user accounts.
     """
+    source_key = _get_client_source_identifier(request)
+
+    # 1. Enforce rate limiting and brute-force lockout
+    is_limited, retry_after = auth_rate_limiter.is_rate_limited(source_key)
+    if is_limited:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed login attempts. Please try again in {retry_after} seconds.",
+            headers={
+                "Retry-After": str(retry_after),
+                "X-Error-Code": "RATE_LIMITED",
+            },
+        )
+
     user = get_user_by_username(credentials.username)
 
     if not user:
         # Perform dummy verification to mitigate timing-based user enumeration
         verify_password(credentials.password, _DUMMY_HASH)
+        auth_rate_limiter.record_failed_attempt(source_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -82,6 +109,7 @@ async def login(credentials: LoginRequest):
     # Verify password hash
     is_valid = verify_password(credentials.password, user["hashed_password"])
     if not is_valid:
+        auth_rate_limiter.record_failed_attempt(source_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -96,6 +124,8 @@ async def login(credentials: LoginRequest):
             headers={"WWW-Authenticate": "Bearer", "X-Error-Code": "ACCOUNT_DISABLED"},
         )
 
+    # 2. Reset rate limit failure counters upon successful authentication
+    auth_rate_limiter.record_successful_attempt(source_key)
 
     # Issue signed JWT access token and refresh token
     access_token = create_access_token(
