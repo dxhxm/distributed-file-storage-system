@@ -20,6 +20,7 @@ from app.services.time_sync import start_periodic_sync, start_clock_slew
 from app.services.health_service import start_heartbeat
 from app.services.user_storage import init_db
 from app.models.config import validate_auth_config
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -58,6 +59,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Section 33 Security Layer: OWASP secure headers, HSTS, and HTTPS/TLS enforcement
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Enable CORS for Web UI cross-node communication
 app.add_middleware(

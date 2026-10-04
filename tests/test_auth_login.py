@@ -173,6 +173,11 @@ class TestAuthLoginEndpoint(unittest.TestCase):
         r4 = self.client.post("/auth/login", json={"username": "valid_user", "password": ""})
         self.assertEqual(r4.status_code, 422)
 
+    def setUp(self):
+        # Reset rate limiter before each test case
+        from app.services.rate_limiter import auth_rate_limiter
+        auth_rate_limiter.reset()
+
     def test_login_alias_route(self):
         """Verify alias /login works identically to /auth/login."""
         response = self.client.post(
@@ -181,6 +186,131 @@ class TestAuthLoginEndpoint(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("access_token", response.json())
+
+    def test_brute_force_failed_logins_throttled_with_429(self):
+        """DoD: Repeated failed logins from one source are throttled/locked temporarily (Section 33)."""
+        client_ip = "192.168.50.10"
+        headers = {"X-Forwarded-For": client_ip}
+
+        # First 5 failed login attempts return 401 Unauthorized
+        for i in range(5):
+            resp = self.client.post(
+                "/auth/login",
+                json={"username": "test_user_std", "password": "WrongPassword#999"},
+                headers=headers,
+            )
+            self.assertEqual(resp.status_code, 401, f"Attempt {i+1} should return 401")
+
+        # 6th attempt is throttled and returns 429 Too Many Requests
+        throttled_resp = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": "WrongPassword#999"},
+            headers=headers,
+        )
+        self.assertEqual(throttled_resp.status_code, 429)
+        self.assertIn("Too many failed login attempts", throttled_resp.json().get("detail", ""))
+        self.assertIn("Retry-After", throttled_resp.headers)
+        self.assertGreater(int(throttled_resp.headers["Retry-After"]), 0)
+        self.assertEqual(throttled_resp.headers.get("X-Error-Code"), "RATE_LIMITED")
+
+    def test_rate_limit_cooldown_permits_legitimate_login(self):
+        """DoD: Legitimate retries after cooldown succeed (Section 33)."""
+        from app.services.rate_limiter import auth_rate_limiter
+        import time
+
+        client_ip = "192.168.50.20"
+        headers = {"X-Forwarded-For": client_ip}
+
+        # Lock out the client with 5 failed attempts
+        for _ in range(5):
+            self.client.post(
+                "/auth/login",
+                json={"username": "test_user_std", "password": "BadPassword123"},
+                headers=headers,
+            )
+
+        # Confirm locked out
+        locked_resp = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": self.user_password},
+            headers=headers,
+        )
+        self.assertEqual(locked_resp.status_code, 429)
+
+        # Simulate cooldown expiration by fast-forwarding the lockout expiry in rate limiter
+        with auth_rate_limiter._lock:
+            if client_ip in auth_rate_limiter._lockouts:
+                # Set lockout to past timestamp
+                auth_rate_limiter._lockouts[client_ip] = time.time() - 1
+
+        # Now legitimate login succeeds
+        success_resp = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": self.user_password},
+            headers=headers,
+        )
+        self.assertEqual(success_resp.status_code, 200)
+        self.assertIn("access_token", success_resp.json())
+
+    def test_successful_login_resets_rate_limiter_counter(self):
+        """Successful login resets failure counter so next failures start from 0."""
+        client_ip = "192.168.50.30"
+        headers = {"X-Forwarded-For": client_ip}
+
+        # 4 failed attempts (1 below threshold 5)
+        for _ in range(4):
+            r = self.client.post(
+                "/auth/login",
+                json={"username": "test_user_std", "password": "WrongPassword"},
+                headers=headers,
+            )
+            self.assertEqual(r.status_code, 401)
+
+        # Successful login resets the counter
+        success = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": self.user_password},
+            headers=headers,
+        )
+        self.assertEqual(success.status_code, 200)
+
+        # Another 4 failed attempts should still be 401 (not 429), since counter was reset
+        for _ in range(4):
+            r = self.client.post(
+                "/auth/login",
+                json={"username": "test_user_std", "password": "WrongPassword"},
+                headers=headers,
+            )
+            self.assertEqual(r.status_code, 401)
+
+    def test_rate_limiting_isolated_by_client_source(self):
+        """Attacker IP getting locked out does not affect distinct legitimate user IP."""
+        attacker_ip = "10.200.1.1"
+        user_ip = "10.200.1.2"
+
+        # Lock out attacker IP
+        for _ in range(5):
+            self.client.post(
+                "/auth/login",
+                json={"username": "test_user_std", "password": "BruteForceAttempt"},
+                headers={"X-Forwarded-For": attacker_ip},
+            )
+
+        attacker_resp = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": self.user_password},
+            headers={"X-Forwarded-For": attacker_ip},
+        )
+        self.assertEqual(attacker_resp.status_code, 429)
+
+        # Legitimate user from distinct IP can log in without issue
+        user_resp = self.client.post(
+            "/auth/login",
+            json={"username": "test_user_std", "password": self.user_password},
+            headers={"X-Forwarded-For": user_ip},
+        )
+        self.assertEqual(user_resp.status_code, 200)
+        self.assertIn("access_token", user_resp.json())
 
 
 if __name__ == "__main__":

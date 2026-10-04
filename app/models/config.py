@@ -66,6 +66,40 @@ def get_jwt_refresh_expiry_days() -> int:
         return 7
 
 
+def is_https_enforced() -> bool:
+    """
+    Determines if HTTPS/TLS is strictly enforced per Section 33 security layer.
+    Enforces redirect/rejection of plain HTTP requests in production or when ENFORCE_HTTPS=true.
+    """
+    enforce = os.environ.get("ENFORCE_HTTPS", "").strip().lower()
+    env = os.environ.get("ENVIRONMENT", "").strip().lower()
+    return enforce in ("true", "1", "yes") or env == "production"
+
+
+def is_cookie_secure() -> bool:
+    """
+    Determines if the Secure flag should be set on authentication cookies.
+    Defaults to True when HTTPS is enforced or COOKIE_SECURE is explicitly true.
+    """
+    cookie_sec = os.environ.get("COOKIE_SECURE", "").strip().lower()
+    if cookie_sec in ("true", "1", "yes"):
+        return True
+    if cookie_sec in ("false", "0", "no"):
+        return False
+    return is_https_enforced()
+
+
+def get_hsts_max_age() -> int:
+    """
+    Retrieves the HSTS max-age duration in seconds (default: 31536000 = 1 year).
+    """
+    val = os.environ.get("HSTS_MAX_AGE", "31536000")
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 31536000
+
+
 def validate_auth_config() -> None:
     """
     Validates mandatory authentication configuration at startup.
