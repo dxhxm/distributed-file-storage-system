@@ -27,6 +27,8 @@ from app.services.jwt_service import (
     get_jwt_algorithm,
 )
 
+from app.services.rate_limiter import AuthRateLimiter, auth_rate_limiter
+
 __all__ = [
     "hash_password",
     "verify_password",
@@ -48,4 +50,6 @@ __all__ = [
     "TokenInvalidError",
     "get_jwt_secret",
     "get_jwt_algorithm",
+    "AuthRateLimiter",
+    "auth_rate_limiter",
 ]
