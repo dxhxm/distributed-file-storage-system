@@ -122,6 +122,46 @@ DFSS enforces thread-safe rate limiting on the `/auth/login` authentication rout
 
 ---
 
+## HTTPS / TLS & Security Layer Configuration (Section 33)
+
+DFSS integrates a dedicated security middleware layer enforcing transport security, defense-in-depth HTTP headers, and secure cookie handling.
+
+### 1. OWASP Secure Response Headers
+
+Every API response from cluster nodes includes defensive security headers:
+
+| Header | Value | Purpose |
+| :--- | :--- | :--- |
+| `X-Content-Type-Options` | `nosniff` | Prevents browser MIME-type sniffing vulnerabilities. |
+| `X-Frame-Options` | `DENY` | Prevents framing and clickjacking attacks. |
+| `X-XSS-Protection` | `1; mode=block` | Enables browser reflected cross-site scripting filter. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Protects sensitive URL paths from leaking across origins. |
+| `Content-Security-Policy` | `default-src 'self'; frame-ancestors 'none'; object-src 'none'; ...` | Restricts resource loading to trusted origin and disables dangerous plugins. |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), ...` | Restricts browser hardware access APIs. |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Emitted on HTTPS connections to force secure transport. |
+
+### 2. HTTPS/TLS Enforcement & Reverse Proxy Integration
+
+- **Production Mode**: Setting `ENVIRONMENT=production` or `ENFORCE_HTTPS=true` activates strict TLS enforcement.
+- **Plain HTTP Redirection**: Inbound plain `http://` requests are automatically redirected (`HTTP 307 Temporary Redirect`) to secure `https://` equivalents, preserving request bodies and HTTP verbs.
+- **Reverse Proxy TLS Offloading**: Recognizes `X-Forwarded-Proto: https` and `X-Forwarded-Ssl: on` headers from ingress load balancers (e.g. NGINX, AWS ALB, Cloudflare).
+
+### 3. Secure Cookie Policies
+
+All session and authentication cookies provisioned by the system enforce:
+- `HttpOnly`: Prevents client-side scripts from reading session cookies.
+- `Secure`: Ensures cookies are only transmitted over encrypted HTTPS channels in production.
+- `SameSite=Lax`: Mitigates Cross-Site Request Forgery (CSRF).
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `ENFORCE_HTTPS` | Force all traffic over HTTPS; redirect plain HTTP. | `false` (dev) / `true` (prod) |
+| `ENVIRONMENT` | Environment type (`development`, `staging`, `production`). | `development` |
+| `COOKIE_SECURE` | Set `Secure` attribute on cookies. | Auto (`true` when HTTPS enforced) |
+| `HSTS_MAX_AGE` | HSTS header max-age lifespan in seconds. | `31536000` (1 year) |
+
+---
+
 ## JWT_SECRET Rotation Procedure
 
 To maintain security compliance or respond to credential exposure incidents, follow this standardized procedure for rotating `JWT_SECRET`:
