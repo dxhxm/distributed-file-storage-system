@@ -1,235 +1,192 @@
-# Distributed Fault-Tolerant File Storage System
+# Distributed Fault-Tolerant File Storage System (DFSS)
 
-## Instructions to Run the Prototype
+A lightweight, fault-tolerant distributed file storage and replication system built with **FastAPI**, **Raft Consensus**, **Berkeley Time Synchronization**, and **Role-Based Access Control (RBAC)**.
 
-### 1. Clone the Repository
+---
+
+## Overview
+
+DFSS coordinates a cluster of independent server nodes to provide fault-tolerant, replicated file storage with high availability and strong data consistency. If any node in the cluster fails or goes offline, the remaining nodes automatically elect a new leader and continue serving read/write traffic without data loss.
+
+### Key Capabilities
+* **Raft Consensus Engine**: Automatic leader election, heartbeat health monitoring, and cluster state agreement.
+* **Fault-Tolerant Replication**: Consistent multi-node file chunk distribution and replica synchronization.
+* **Berkeley Time Synchronization**: Internal logical clock alignment and drift compensation across cluster nodes.
+* **Role-Based Access Control (RBAC)**: Secure JWT access and refresh token sessions with `USER`, `ADMIN`, and `SYSTEM` roles.
+* **Zero-Trust Security Layer**: OWASP defense-in-depth headers, TLS/HTTPS enforcement, and brute-force rate limiting.
+
+---
+
+## System Architecture
+
+```
+                       +-------------------------------+
+                       |    Client / Web Application   |
+                       +---------------+---------------+
+                                       |
+                     HTTP / REST API   |   (Bearer JWT / RBAC)
+                                       v
+        +-------------------------------------------------------------+
+        |                 DFSS Distributed Cluster                    |
+        |                                                             |
+        |   +------------------+             +------------------+     |
+        |   |   Node A:8000    |<----------->|   Node B:8001    |     |
+        |   | (Current Leader) |  Heartbeats |    (Follower)    |     |
+        |   +--------+---------+  Consensus  +--------+---------+     |
+        |            |        \             /         |               |
+        |            |         \           /          |               |
+        |            |          v         v           |               |
+        |            |     +------------------+       |               |
+        |            |     |   Node C:8002    |       |               |
+        |            |     |    (Follower)    |       |               |
+        |            |     +--------+---------+       |               |
+        |            v              v                 v               |
+        |     [Storage Node1] [Storage Node3]  [Storage Node2]        |
+        |     (Files + SQLite)(Files + SQLite) (Files + SQLite)       |
+        +-------------------------------------------------------------+
+```
+
+---
+
+## How It Works
+
+1. **Cluster Consensus & Leader Election**
+   * Each node starts in a `FOLLOWER` state with a randomized election timeout.
+   * If a follower misses heartbeats from the active leader, it transitions to `CANDIDATE` and requests cluster votes.
+   * Once a candidate achieves a quorum majority, it becomes the `LEADER` and dispatches periodic heartbeats to followers.
+
+2. **File Replication Workflow**
+   * Write operations (file upload, metadata update, deletion) are routed to the cluster Leader.
+   * The Leader commits the entry to its local storage database and broadcasts replication requests to alive follower nodes.
+   * Follower nodes pull replica payloads, verify SHA-256 content hashes, and persist them locally.
+
+3. **Time Synchronization**
+   * Nodes execute a distributed Berkeley time synchronization algorithm at regular intervals to sample peer clock offsets, calculate average drift, and apply gradual clock slew correction.
+
+4. **Authentication & RBAC**
+   * Users authenticate via `/auth/login` to obtain short-lived JWT access tokens and long-lived refresh tokens.
+   * Role permissions (`USER`, `ADMIN`, `SYSTEM`) are strictly enforced per endpoint.
+
+---
+
+## Getting Started
+
+### Prerequisites
+* **Python 3.10+**
+* Virtual environment (`venv`)
+
+### 1. Installation
 
 ```bash
+# Clone the repository
 git clone <github-repository-link>
 cd distributed-file-storage-system
-```
 
----
-
-### 2. Create Virtual Environment
-
-```bash
+# Create and activate virtual environment
 python -m venv venv
-```
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-Activate the environment.
-
-Mac / Linux
-
-```bash
-source venv/bin/activate
-```
-
-Windows
-
-```bash
-venv\Scripts\activate
-```
-
----
-
-### 3. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
----
+### 2. Environment Configuration
 
-### 4. Start the Distributed Nodes
-
-Run each node in a separate terminal.
-
-Start Node A
+Copy the sample environment template:
 
 ```bash
+cp .env.example .env
+```
+
+### 3. Start Distributed Cluster Nodes
+
+Run each node in a dedicated terminal window:
+
+```bash
+# Terminal 1 — Node A (Port 8000)
 python nodes/nodeA.py
-```
 
-Start Node B
-
-```bash
+# Terminal 2 — Node B (Port 8001)
 python nodes/nodeB.py
-```
 
-Start Node C
-
-```bash
+# Terminal 3 — Node C (Port 8002)
 python nodes/nodeC.py
 ```
 
----
+### 4. Access API Documentation
 
-### 5. Access the API
+Interactive OpenAPI / Swagger documentation is available on each running node:
 
-After starting the servers, open the FastAPI documentation:
-
-```
-http://localhost:8000/docs
-```
-
-This interface can be used to test the available API endpoints such as uploading and retrieving files.
+* **Node A**: [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Node B**: [http://localhost:8001/docs](http://localhost:8001/docs)
+* **Node C**: [http://localhost:8002/docs](http://localhost:8002/docs)
 
 ---
 
-## Secrets Management & Security (Section 34)
+## API Endpoints Overview
 
-DFSS enforces strict environment-driven configuration and zero-hardcoded secrets across the entire codebase.
+| Category | Method | Endpoint | Description | Role Required |
+| :--- | :--- | :--- | :--- | :--- |
+| **Auth** | `POST` | `/auth/login` | User login (returns access & refresh tokens) | Public |
+| **Auth** | `POST` | `/auth/refresh` | Exchange refresh token for new access token | Public |
+| **Auth** | `GET` | `/auth/me` | Retrieve authenticated user profile | `USER` / `ADMIN` |
+| **Files** | `POST` | `/replicate/upload` | Upload and replicate a file across cluster | `USER` / `ADMIN` |
+| **Files** | `GET` | `/replicate/download/{filename}` | Download file from node replica | `USER` / `ADMIN` |
+| **Files** | `GET` | `/replicate/files` | List all replicated files in storage | `USER` / `ADMIN` |
+| **Files** | `DELETE` | `/replicate/delete/{filename}` | Delete file from cluster replicas | `ADMIN` |
+| **Consensus** | `GET` | `/consensus/status` | Cluster election state and active leader | Authenticated |
+| **Consensus** | `POST` | `/consensus/propose` | Propose state transition to leader | Authenticated |
+| **Health** | `GET` | `/health` | Node health check and peer status | Authenticated |
+| **Admin** | `GET` | `/admin/logs` | Query cluster audit and security logs | `ADMIN` |
+| **Admin** | `POST` | `/auth/users` | Provision new user account | `ADMIN` |
 
-### 1. Environment Configuration
+---
 
-All sensitive configuration parameters must be supplied via environment variables or a local `.env` file (copied from `.env.example`). The server performs startup validation (`validate_auth_config()`) and will **fail loudly with a `RuntimeError`** if required secrets are absent.
+## Security & Secrets Management (Section 34 & Section 33)
 
-| Variable | Description | Required / Default |
+DFSS is engineered with zero hardcoded credentials and a defense-in-depth security layer.
+
+### Key Environment Variables
+
+| Variable | Description | Default / Requirement |
 | :--- | :--- | :--- |
-| `JWT_SECRET` | High-entropy signing key (minimum 32 bytes / 256 bits) for HMAC SHA-256 tokens. | **Required** (Fails startup if missing) |
-| `JWT_EXPIRY_MINUTES` | Access token lifespan in minutes. | Optional (Default: `60`) |
-| `JWT_REFRESH_EXPIRY_DAYS` | Refresh token lifespan in days. | Optional (Default: `7`) |
-| `ADMIN_BOOTSTRAP_PASSWORD` | Bootstrap password for initial cluster admin account provisioning. | Optional |
-| `NODE_NAME` | Human-readable node identifier (e.g. `Node A`). | Required per node |
-| `CURRENT_NODE_URL` | Local network bind URL (e.g. `http://localhost:8000`). | Required per node |
-| `STORAGE_DIR` | Local path for physical file replicas and SQLite metadata. | Required per node |
+| `JWT_SECRET` | 32-byte secret key for HMAC SHA-256 JWT tokens. | **Required** (`validate_auth_config()` aborts on boot if missing) |
+| `JWT_EXPIRY_MINUTES` | Access token lifespan in minutes. | `60` |
+| `JWT_REFRESH_EXPIRY_DAYS` | Refresh token lifespan in days. | `7` |
+| `AUTH_RATE_LIMIT_MAX_ATTEMPTS` | Failed login attempts allowed before lockout. | `5` |
+| `AUTH_RATE_LIMIT_COOLDOWN_SECONDS` | Lockout cooldown duration in seconds. | `60` |
+| `ENFORCE_HTTPS` | Redirect plain HTTP traffic to HTTPS (`HTTP 307`). | `false` (dev) / `true` (prod) |
 
-### 2. .gitignore & Secret Protection
+### JWT_SECRET Rotation Procedure
 
-- `.env` and `.env.*` files are explicitly excluded in `.gitignore` to prevent committing real credentials to version control.
-- Only `.env.example` containing non-sensitive placeholder templates is tracked in Git.
+To rotate cluster signing secrets per Section 34 security policies:
 
----
-
-## Brute-Force Protection & Rate Limiting (Section 33)
-
-DFSS enforces thread-safe rate limiting on the `/auth/login` authentication route to safeguard cluster nodes against brute-force password guessing and denial-of-service attacks.
-
-### Mechanism & Policies
-- **Sliding Window Tracking**: Failed login attempts are recorded per client IP / source origin over a configurable sliding time window (`AUTH_RATE_LIMIT_WINDOW_SECONDS`, default: 60s).
-- **Temporary Lockout**: If consecutive failed attempts reach the configured threshold (`AUTH_RATE_LIMIT_MAX_ATTEMPTS`, default: 5 attempts), the source origin is temporarily locked out.
-- **HTTP 429 Too Many Requests**: Requests during lockout are rejected with `HTTP 429` and include a `Retry-After: <seconds>` header indicating the remaining cooldown duration.
-- **Automatic Cooldown & Recovery**: After the cooldown period (`AUTH_RATE_LIMIT_COOLDOWN_SECONDS`, default: 60s) elapses, legitimate authentication requests immediately succeed without manual intervention.
-- **Immediate Reset on Success**: A single successful login immediately resets the failure counter for that source.
-- **Source Isolation**: Rate limiting is tracked per origin IP/host, ensuring legitimate users on separate addresses are never locked out by attacks on other IPs.
-
-| Configuration Variable | Description | Default |
-| :--- | :--- | :--- |
-| `AUTH_RATE_LIMIT_MAX_ATTEMPTS` | Maximum failed attempts allowed before triggering lockout. | `5` |
-| `AUTH_RATE_LIMIT_COOLDOWN_SECONDS` | Lockout duration in seconds. | `60` |
-| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | Sliding window duration in seconds. | `60` |
-
----
-
-## HTTPS / TLS & Security Layer Configuration (Section 33)
-
-DFSS integrates a dedicated security middleware layer enforcing transport security, defense-in-depth HTTP headers, and secure cookie handling.
-
-### 1. OWASP Secure Response Headers
-
-Every API response from cluster nodes includes defensive security headers:
-
-| Header | Value | Purpose |
-| :--- | :--- | :--- |
-| `X-Content-Type-Options` | `nosniff` | Prevents browser MIME-type sniffing vulnerabilities. |
-| `X-Frame-Options` | `DENY` | Prevents framing and clickjacking attacks. |
-| `X-XSS-Protection` | `1; mode=block` | Enables browser reflected cross-site scripting filter. |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Protects sensitive URL paths from leaking across origins. |
-| `Content-Security-Policy` | `default-src 'self'; frame-ancestors 'none'; object-src 'none'; ...` | Restricts resource loading to trusted origin and disables dangerous plugins. |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), ...` | Restricts browser hardware access APIs. |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Emitted on HTTPS connections to force secure transport. |
-
-### 2. HTTPS/TLS Enforcement & Reverse Proxy Integration
-
-- **Production Mode**: Setting `ENVIRONMENT=production` or `ENFORCE_HTTPS=true` activates strict TLS enforcement.
-- **Plain HTTP Redirection**: Inbound plain `http://` requests are automatically redirected (`HTTP 307 Temporary Redirect`) to secure `https://` equivalents, preserving request bodies and HTTP verbs.
-- **Reverse Proxy TLS Offloading**: Recognizes `X-Forwarded-Proto: https` and `X-Forwarded-Ssl: on` headers from ingress load balancers (e.g. NGINX, AWS ALB, Cloudflare).
-
-### 3. Secure Cookie Policies
-
-All session and authentication cookies provisioned by the system enforce:
-- `HttpOnly`: Prevents client-side scripts from reading session cookies.
-- `Secure`: Ensures cookies are only transmitted over encrypted HTTPS channels in production.
-- `SameSite=Lax`: Mitigates Cross-Site Request Forgery (CSRF).
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `ENFORCE_HTTPS` | Force all traffic over HTTPS; redirect plain HTTP. | `false` (dev) / `true` (prod) |
-| `ENVIRONMENT` | Environment type (`development`, `staging`, `production`). | `development` |
-| `COOKIE_SECURE` | Set `Secure` attribute on cookies. | Auto (`true` when HTTPS enforced) |
-| `HSTS_MAX_AGE` | HSTS header max-age lifespan in seconds. | `31536000` (1 year) |
-
----
-
-## JWT_SECRET Rotation Procedure
-
-To maintain security compliance or respond to credential exposure incidents, follow this standardized procedure for rotating `JWT_SECRET`:
-
-### Step 1: Generate a New High-Entropy Secret Key
-
-Generate a cryptographically secure random 32-byte (256-bit) hex or base64 key:
-
-```bash
-# Using OpenSSL
-openssl rand -hex 32
-
-# Or using Python secrets module
-python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-### Step 2: Update Configuration on All Cluster Nodes
-
-Update the `JWT_SECRET` environment variable or `.env` file across all participating nodes (`Node A`, `Node B`, `Node C`, or deployment container environments):
-
-```bash
-JWT_SECRET="<your-newly-generated-32-byte-hex-key>"
-```
-
-> **Important**: Ensure all cluster nodes share the **identical** new `JWT_SECRET` so that inter-node RPC and distributed replication requests continue to authenticate seamlessly.
-
-### Step 3: Perform a Rolling Restart of Distributed Nodes
-
-Restart the cluster node processes sequentially (or restart container pods):
-
-```bash
-# Terminal 1 - Node A
-python nodes/nodeA.py
-
-# Terminal 2 - Node B
-python nodes/nodeB.py
-
-# Terminal 3 - Node C
-python nodes/nodeC.py
-```
-
-### Step 4: Session Invalidation & Re-Authentication
-
-- **User Access & Refresh Tokens**: Any tokens signed with the old secret are immediately invalidated. Subsequent requests bearing old tokens will receive `401 Unauthorized` (`"Token signature is invalid or has been tampered with"`).
-- **Client Re-login**: Active users and administrators must re-authenticate via `POST /auth/login` to obtain fresh JWT tokens signed with the new secret.
-- **Inter-Node System Tokens**: Each node automatically provisions new `SYSTEM` role tokens signed with the updated key upon restart.
-
-### Step 5: Post-Rotation Health & Sanity Verification
-
-1. **Verify Startup Logs**: Confirm all nodes start cleanly and log:
-   ```
-   INFO: Authentication & Secrets Configuration Validated.
-   ```
-2. **Check Node Health**:
+1. **Generate Secret**: Generate a cryptographically secure 32-byte key:
    ```bash
-   curl http://localhost:8000/health
-   curl http://localhost:8001/health
-   curl http://localhost:8002/health
+   openssl rand -hex 32
    ```
-3. **Verify Authentication & Operations**:
-   - Authenticate via `POST /auth/login` with admin credentials.
-   - Perform a test file upload/metadata query to confirm cluster-wide consensus and replication.
+2. **Update Environment**: Update `JWT_SECRET` in `.env` (or container environment) across all nodes.
+3. **Restart Nodes**: Perform a rolling restart of Node A, Node B, and Node C.
+4. **Re-Authentication**: Active user sessions are invalidated and clients re-authenticate via `/auth/login`. Inter-node system tokens regenerate automatically.
 
 ---
 
-## Notes
+## Running Automated Tests
 
-* The system simulates a **distributed file storage system** using multiple nodes running on different ports.
-* Each node represents a server in the distributed environment with local storage replication.
-* All protected endpoints enforce standard error schemas (`{"detail": ...}`) and distinguish between unauthenticated (`401`) and unauthorized (`403`) access.
+Run the complete test suite:
 
+```bash
+# Run all unit and integration tests
+python -m unittest discover -s tests
+
+# Run specific security test suites
+python -m unittest tests/test_security_headers.py
+python -m unittest tests/test_rate_limiter.py
+python -m unittest tests/test_secrets_audit.py
+```
+
+---
+
+## License
+
+MIT License
